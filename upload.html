@@ -69,12 +69,12 @@ body{
 /* 上传区域 */
 .upload-zone{
   border:2px dashed var(--border);border-radius:20px;
-  padding:40px 20px;text-align:center;
+  padding:32px 20px;text-align:center;
   transition:all .3s;cursor:pointer;position:relative;
   margin-bottom:20px;
 }
 .upload-zone.active{border-color:var(--gold);background:rgba(201,168,76,.05);}
-.upload-zone.has-file{border-color:#22c55e;background:rgba(34,197,94,.05);}
+.upload-zone.has-files{border-color:#22c55e;background:rgba(34,197,94,.05);}
 .upload-icon{font-size:48px;margin-bottom:12px;}
 .upload-text{font-size:14px;color:var(--dim);margin-bottom:6px;}
 .upload-hint{font-size:11px;color:rgba(148,163,184,.6);}
@@ -82,23 +82,75 @@ body{
   position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;
 }
 
-/* 预览区 */
-.preview-area{display:none;margin-bottom:20px;}
-.preview-area.show{display:block;}
-.preview-img{
-  width:100%;border-radius:16px;border:1px solid var(--border);
-  max-height:400px;object-fit:contain;
-  background:rgba(0,0,0,.3);
+/* 图片计数器 */
+.file-counter{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:4px 12px;border-radius:999px;
+  background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.25);
+  font-size:12px;font-weight:600;color:var(--gold);
+  margin-bottom:16px;
 }
-.preview-info{
-  display:flex;align-items:center;justify-content:space-between;
-  margin-top:10px;padding:0 4px;
+.file-counter .count-num{font-size:16px;font-weight:800;color:var(--gold-l);}
+
+/* 预览网格 */
+.preview-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:10px;
+  margin-bottom:20px;
 }
-.preview-name{font-size:12px;color:var(--dim);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.preview-size{font-size:11px;color:var(--dim);margin-left:8px;}
-.preview-remove{
-  font-size:12px;color:var(--up);cursor:pointer;margin-left:12px;
-  background:none;border:none;font-family:inherit;
+.preview-card{
+  position:relative;
+  border-radius:14px;
+  border:1px solid var(--border);
+  overflow:hidden;
+  aspect-ratio:3/4;
+  background:var(--dark2);
+  transition:transform .15s;
+}
+.preview-card img{
+  width:100%;height:100%;
+  object-fit:cover;
+  display:block;
+}
+.preview-card .remove-btn{
+  position:absolute;top:6px;right:6px;
+  width:26px;height:26px;border-radius:50%;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.15);
+  color:#fff;font-size:14px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;z-index:2;
+  transition:background .2s;
+}
+.preview-card .remove-btn:active{background:rgba(244,63,94,.8);}
+.preview-card .file-info{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:8px 10px;
+  background:linear-gradient(transparent, rgba(0,0,0,.8));
+  font-size:10px;color:rgba(255,255,255,.8);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.preview-card .order-badge{
+  position:absolute;top:6px;left:6px;
+  width:22px;height:22px;border-radius:50%;
+  background:rgba(201,168,76,.85);backdrop-filter:blur(4px);
+  color:var(--dark);font-size:11px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* 添加更多按钮 */
+.add-more-zone{
+  border:1px dashed var(--border);border-radius:14px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  aspect-ratio:3/4;cursor:pointer;transition:all .2s;
+  color:var(--dim);
+}
+.add-more-zone:active{background:rgba(201,168,76,.05);border-color:var(--gold);}
+.add-more-zone .plus{font-size:28px;margin-bottom:4px;}
+.add-more-zone .label{font-size:10px;}
+.add-more-zone input[type="file"]{
+  position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;
 }
 
 /* 账户选择 */
@@ -161,6 +213,32 @@ body{
 .submit-btn.loading .btn-text{display:none;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
+/* 进度条 */
+.progress-bar{
+  display:none;margin-bottom:20px;
+  background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:14px 16px;
+}
+.progress-bar.show{display:block;}
+.progress-bar .pb-header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:10px;font-size:12px;
+}
+.progress-bar .pb-label{color:var(--text);font-weight:600;}
+.progress-bar .pb-pct{color:var(--gold);font-weight:700;}
+.progress-bar .pb-track{
+  height:6px;border-radius:3px;background:var(--dark2);overflow:hidden;
+}
+.progress-bar .pb-fill{
+  height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--gold),var(--gold-l));
+  transition:width .3s;
+  width:0;
+}
+.progress-bar .pb-detail{
+  margin-top:8px;font-size:11px;color:var(--dim);
+}
+
 /* 历史记录 */
 .history-section{margin-top:24px;}
 .history-section h3{font-size:13px;font-weight:600;color:var(--gold-l);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
@@ -173,10 +251,14 @@ body{
   background:var(--card);border:1px solid var(--border);
   border-radius:14px;padding:12px 14px;margin-bottom:10px;
   display:flex;align-items:center;gap:12px;
+  text-decoration:none;color:inherit;
 }
-.history-thumb{
-  width:48px;height:48px;border-radius:10px;object-fit:cover;
-  background:var(--dark2);border:1px solid var(--border);flex-shrink:0;
+.history-thumbs{
+  display:flex;gap:4px;flex-shrink:0;
+}
+.history-thumbs img{
+  width:36px;height:48px;border-radius:6px;object-fit:cover;
+  background:var(--dark2);border:1px solid var(--border);
 }
 .history-info{flex:1;min-width:0;}
 .history-info .hi-title{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -210,6 +292,7 @@ body{
   z-index:9998;padding:10px 20px;border-radius:12px;
   background:rgba(244,63,94,.9);color:white;font-size:13px;font-weight:600;
   backdrop-filter:blur(10px);opacity:0;transition:opacity .3s;pointer-events:none;
+  white-space:nowrap;
 }
 .toast.show{opacity:1;}
 </style>
@@ -236,18 +319,18 @@ body{
     <h3>📋 使用说明</h3>
     <div class="step">
       <div class="step-num">1</div>
-      <div class="step-text">打开基金App（支付宝/天天基金等），截图你的当前持仓页面</div>
+      <div class="step-text">打开基金App，截图你的持仓页面（最多6张）</div>
     </div>
     <div class="step">
       <div class="step-num">2</div>
-      <div class="step-text">选择要同步的账户类型，上传截图</div>
+      <div class="step-text">选择账户类型，添加备注后提交</div>
     </div>
     <div class="step">
       <div class="step-num">3</div>
-      <div class="step-text">智能体团队会自动识别截图内容，更新持仓数据</div>
+      <div class="step-text">团队自动识别截图，更新持仓数据</div>
     </div>
     <p style="margin-top:10px;font-size:11px;color:rgba(148,163,184,.6)">
-      截图通过 GitHub Issue 安全传输，仅团队成员可见。
+      截图通过 GitHub Issue 安全传输，仅团队成员可见。支持批量上传最多6张。
     </p>
   </div>
 
@@ -255,19 +338,17 @@ body{
   <div class="upload-zone" id="uploadZone">
     <div class="upload-icon" id="uploadIcon">📸</div>
     <div class="upload-text" id="uploadText">点击选择持仓截图</div>
-    <div class="upload-hint">支持 JPG / PNG / HEIC，最大 10MB</div>
-    <input type="file" accept="image/*" id="fileInput"/>
+    <div class="upload-hint">支持 JPG / PNG / HEIC，单张最大 10MB，最多 6 张</div>
+    <input type="file" accept="image/*" multiple id="fileInput"/>
   </div>
 
-  <!-- 预览 -->
-  <div class="preview-area" id="previewArea">
-    <img class="preview-img" id="previewImg"/>
-    <div class="preview-info">
-      <div class="preview-name" id="previewName"></div>
-      <div class="preview-size" id="previewSize"></div>
-      <button class="preview-remove" onclick="removeFile()">移除</button>
-    </div>
+  <!-- 文件计数器 -->
+  <div class="file-counter" id="fileCounter" style="display:none">
+    已选 <span class="count-num" id="countNum">0</span> / 6 张
   </div>
+
+  <!-- 预览网格 -->
+  <div class="preview-grid" id="previewGrid"></div>
 
   <!-- 账户选择 -->
   <div class="account-select">
@@ -303,6 +384,18 @@ body{
     <textarea class="note-textarea" id="noteText" placeholder="如有调仓操作或其他说明，请在此备注..."></textarea>
   </div>
 
+  <!-- 进度条 -->
+  <div class="progress-bar" id="progressBar">
+    <div class="pb-header">
+      <span class="pb-label" id="pbLabel">正在上传...</span>
+      <span class="pb-pct" id="pbPct">0%</span>
+    </div>
+    <div class="pb-track">
+      <div class="pb-fill" id="pbFill"></div>
+    </div>
+    <div class="pb-detail" id="pbDetail"></div>
+  </div>
+
   <!-- 提交 -->
   <button class="submit-btn" id="submitBtn" onclick="submitUpload()" disabled>
     <div class="spinner"></div>
@@ -324,7 +417,7 @@ body{
 <div class="success-overlay" id="successOverlay">
   <div class="success-icon">✅</div>
   <div class="success-title">提交成功</div>
-  <div class="success-desc">
+  <div class="success-desc" id="successDesc">
     持仓截图已上传，智能体团队将自动识别并更新数据。<br/>
     通常在5-10分钟内完成同步。
   </div>
@@ -334,8 +427,9 @@ body{
 <script>
 const REPO = "rebornwl/apex-capital-dashboard";
 const ISSUE_LABEL = "holding-sync";
+const MAX_FILES = 6;
 let selectedAccount = "normal";
-let selectedFile = null;
+let selectedFiles = []; // {file, previewUrl}
 
 // 工具
 function showToast(msg) {
@@ -351,45 +445,109 @@ function formatSize(bytes) {
   return (bytes/1024/1024).toFixed(1) + " MB";
 }
 
-// 文件选择
+function updateUI() {
+  const count = selectedFiles.length;
+  const counter = document.getElementById("fileCounter");
+  const grid = document.getElementById("previewGrid");
+  const zone = document.getElementById("uploadZone");
+  const btn = document.getElementById("submitBtn");
+  
+  // 计数器
+  if (count > 0) {
+    counter.style.display = "inline-flex";
+    document.getElementById("countNum").textContent = count;
+  } else {
+    counter.style.display = "none";
+  }
+  
+  // 上传区域状态
+  if (count >= MAX_FILES) {
+    zone.style.display = "none";
+  } else {
+    zone.style.display = "";
+    if (count > 0) {
+      zone.classList.add("has-files");
+      document.getElementById("uploadIcon").textContent = "➕";
+      document.getElementById("uploadText").textContent = `继续添加截图（还可加 ${MAX_FILES - count} 张）`;
+    } else {
+      zone.classList.remove("has-files");
+      document.getElementById("uploadIcon").textContent = "📸";
+      document.getElementById("uploadText").textContent = "点击选择持仓截图";
+    }
+  }
+  
+  // 渲染预览网格
+  grid.innerHTML = "";
+  selectedFiles.forEach((item, idx) => {
+    const card = document.createElement("div");
+    card.className = "preview-card";
+    card.innerHTML = `
+      <span class="order-badge">${idx + 1}</span>
+      <button class="remove-btn" onclick="removeFile(${idx})">×</button>
+      <img src="${item.previewUrl}" alt="截图${idx+1}"/>
+      <div class="file-info">${item.file.name.length > 18 ? item.file.name.slice(0,15) + '...' : item.file.name} · ${formatSize(item.file.size)}</div>
+    `;
+    grid.appendChild(card);
+  });
+  
+  // 添加更多按钮
+  if (count > 0 && count < MAX_FILES) {
+    const addCard = document.createElement("div");
+    addCard.className = "add-more-zone";
+    addCard.style.position = "relative";
+    addCard.innerHTML = `
+      <span class="plus">+</span>
+      <span class="label">添加更多</span>
+      <input type="file" accept="image/*" multiple onchange="handleFiles(this.files)"/>
+    `;
+    grid.appendChild(addCard);
+  }
+  
+  // 提交按钮
+  btn.disabled = count === 0;
+  btn.querySelector(".btn-text").textContent = count > 0 
+    ? `📤 提交 ${count} 张截图` 
+    : "📤 提交持仓截图";
+}
+
+// 文件选择处理
+function handleFiles(fileList) {
+  const newFiles = Array.from(fileList);
+  let added = 0;
+  
+  for (const file of newFiles) {
+    if (selectedFiles.length >= MAX_FILES) break;
+    
+    if (!file.type.startsWith("image/")) {
+      showToast(`${file.name} 不是图片，已跳过`);
+      continue;
+    }
+    if (file.size > 10*1024*1024) {
+      showToast(`${file.name} 超过10MB，已跳过`);
+      continue;
+    }
+    
+    const previewUrl = URL.createObjectURL(file);
+    selectedFiles.push({ file, previewUrl });
+    added++;
+  }
+  
+  if (added < newFiles.length && selectedFiles.length >= MAX_FILES) {
+    showToast(`最多只能上传 ${MAX_FILES} 张截图`);
+  }
+  
+  updateUI();
+}
+
 document.getElementById("fileInput").addEventListener("change", function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  if (!file.type.startsWith("image/")) {
-    showToast("请选择图片文件");
-    return;
-  }
-  if (file.size > 10*1024*1024) {
-    showToast("文件大小不能超过 10MB");
-    return;
-  }
-  
-  selectedFile = file;
-  
-  // 预览
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    document.getElementById("previewImg").src = ev.target.result;
-    document.getElementById("previewName").textContent = file.name;
-    document.getElementById("previewSize").textContent = formatSize(file.size);
-    document.getElementById("previewArea").classList.add("show");
-    document.getElementById("uploadZone").classList.add("has-file");
-    document.getElementById("uploadIcon").textContent = "✅";
-    document.getElementById("uploadText").textContent = "已选择截图";
-    document.getElementById("submitBtn").disabled = false;
-  };
-  reader.readAsDataURL(file);
+  handleFiles(e.target.files);
+  e.target.value = ""; // 允许重复选择同一文件
 });
 
-function removeFile() {
-  selectedFile = null;
-  document.getElementById("fileInput").value = "";
-  document.getElementById("previewArea").classList.remove("show");
-  document.getElementById("uploadZone").classList.remove("has-file");
-  document.getElementById("uploadIcon").textContent = "📸";
-  document.getElementById("uploadText").textContent = "点击选择持仓截图";
-  document.getElementById("submitBtn").disabled = true;
+function removeFile(idx) {
+  URL.revokeObjectURL(selectedFiles[idx].previewUrl);
+  selectedFiles.splice(idx, 1);
+  updateUI();
 }
 
 // 账户选择
@@ -399,19 +557,64 @@ function selectAccount(type, el) {
   el.classList.add("selected");
 }
 
-// 图片转 Base64
-function fileToBase64(file) {
+// 图片转 Base64（带压缩）
+function fileToBase64(file, maxSizeKB = 512) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // 如果原图已经小于目标大小，直接返回
+        if (file.size < maxSizeKB * 1024) {
+          resolve(e.target.result);
+          return;
+        }
+        // 压缩
+        const canvas = document.createElement("canvas");
+        let w = img.width, h = img.height;
+        const maxDim = 1600;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        // 尝试不同质量
+        let quality = 0.7;
+        let base64;
+        do {
+          base64 = canvas.toDataURL("image/jpeg", quality);
+          quality -= 0.1;
+        } while (base64.length > maxSizeKB * 1024 * 1.37 && quality > 0.1);
+        resolve(base64);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
 }
 
+// 显示进度
+function showProgress(label, pct, detail) {
+  const bar = document.getElementById("progressBar");
+  bar.classList.add("show");
+  document.getElementById("pbLabel").textContent = label;
+  document.getElementById("pbPct").textContent = pct + "%";
+  document.getElementById("pbFill").style.width = pct + "%";
+  document.getElementById("pbDetail").textContent = detail || "";
+}
+
+function hideProgress() {
+  document.getElementById("progressBar").classList.remove("show");
+}
+
 // 提交
 async function submitUpload() {
-  if (!selectedFile) {
+  if (selectedFiles.length === 0) {
     showToast("请先选择截图");
     return;
   }
@@ -421,29 +624,55 @@ async function submitUpload() {
   btn.disabled = true;
   
   try {
-    const base64 = await fileToBase64(selectedFile);
+    // 压缩所有图片
+    showProgress("正在压缩图片...", 10, `准备 ${selectedFiles.length} 张截图`);
+    const base64List = [];
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const b64 = await fileToBase64(selectedFiles[i].file, 480);
+      base64List.push(b64);
+      const pct = 10 + Math.round((i + 1) / selectedFiles.length * 40);
+      showProgress("正在压缩图片...", pct, `${i + 1} / ${selectedFiles.length} 张已完成`);
+    }
+    
     const note = document.getElementById("noteText").value.trim();
     const accountLabels = { normal: "普通账户", pension: "养老金账户", both: "两个账户" };
+    const issueTitle = `[持仓同步] ${new Date().toLocaleDateString("zh-CN")} ${accountLabels[selectedAccount]}（${selectedFiles.length}张截图）`;
     
-    const issueTitle = `[持仓同步] ${new Date().toLocaleDateString("zh-CN")} ${accountLabels[selectedAccount]}`;
+    showProgress("正在生成报告...", 55, "组装Issue内容");
+    
+    // 构建Issue body（带多张图片）
+    let imagesMd = base64List.map((b64, i) => 
+      `### 截图 ${i + 1}/${selectedFiles.length}\n![持仓截图${i+1}](${b64})\n`
+    ).join("\n");
+    
+    const totalSize = selectedFiles.reduce((s, f) => s + f.file.size, 0);
     
     const body = `## 持仓截图同步请求
 
 - **账户类型**：${accountLabels[selectedAccount]}
 - **提交时间**：${new Date().toLocaleString("zh-CN")}
-- **文件名**：${selectedFile.name}
-- **文件大小**：${formatSize(selectedFile.size)}
+- **截图数量**：${selectedFiles.length} 张
+- **总大小**：${formatSize(totalSize)}
+- **文件列表**：${selectedFiles.map((f,i) => `${i+1}. ${f.name} (${formatSize(f.file.size)})`).join(" | ")}
 
 ${note ? `## 备注\n${note}` : ""}
 
 ## 截图预览
 
-![持仓截图](${base64})
+${imagesMd}
 
 ---
 > 此 Issue 由持仓同步系统自动创建，智能体团队将自动处理。`;
 
-    // 通过 GitHub API 创建 Issue
+    showProgress("正在提交到 GitHub...", 70, "请稍候...");
+    
+    // 检查body大小（GitHub Issue body限制约1MB）
+    const bodySize = new Blob([body]).size;
+    if (bodySize > 900 * 1024) {
+      // 图片太大，降级为手动上传
+      throw new Error("body_too_large");
+    }
+    
     const response = await fetch(`https://api.github.com/repos/${REPO}/issues`, {
       method: "POST",
       headers: {
@@ -457,57 +686,77 @@ ${note ? `## 备注\n${note}` : ""}
       })
     });
     
+    showProgress("正在完成...", 90, "");
+    
     if (!response.ok) {
-      // 如果认证失败，提供手动方式
-      if (response.status === 401 || response.status === 403) {
-        window.open(
-          `https://github.com/${REPO}/issues/new?title=${encodeURIComponent(issueTitle)}&labels=${ISSUE_LABEL}&body=${encodeURIComponent(body.substring(0, 200) + "\n\n[请在此处粘贴截图]")}`,
-          "_blank"
-        );
-        document.getElementById("successOverlay").querySelector(".success-desc").textContent = 
-          "已打开 GitHub Issue 页面，请粘贴截图后提交。";
-        document.getElementById("successOverlay").classList.add("show");
+      if (response.status === 401 || response.status === 403 || response.status === 422) {
+        // 认证失败或内容过大，提供手动方式
+        fallbackManualUpload(issueTitle, note);
         return;
       }
       throw new Error(`GitHub API 返回 ${response.status}`);
     }
     
     const issue = await response.json();
-    console.log("Issue created:", issue.html_url);
+    showProgress("完成!", 100, "提交成功");
     
     // 保存历史
     saveHistory({
       url: issue.html_url,
       account: selectedAccount,
       time: new Date().toISOString(),
-      file: selectedFile.name,
-      thumb: document.getElementById("previewImg").src
+      count: selectedFiles.length,
+      files: selectedFiles.map(f => f.name),
+      thumbs: selectedFiles.slice(0, 3).map(f => f.previewUrl)
     });
     
-    document.getElementById("successOverlay").classList.add("show");
+    setTimeout(() => {
+      hideProgress();
+      document.getElementById("successDesc").innerHTML = 
+        `${selectedFiles.length} 张持仓截图已上传，团队将自动识别并更新数据。<br/>通常在5-10分钟内完成同步。`;
+      document.getElementById("successOverlay").classList.add("show");
+    }, 500);
     
   } catch(err) {
     console.error("Upload error:", err);
-    // 降级：打开 GitHub Issue 页面手动上传
-    const accountLabels = { normal: "普通账户", pension: "养老金账户", both: "两个账户" };
-    const issueTitle = `[持仓同步] ${new Date().toLocaleDateString("zh-CN")} ${accountLabels[selectedAccount]}`;
-    const note = document.getElementById("noteText").value.trim();
+    hideProgress();
     
-    window.open(
-      `https://github.com/${REPO}/issues/new?title=${encodeURIComponent(issueTitle)}&labels=${ISSUE_LABEL}&body=${encodeURIComponent("## 备注说明\n" + (note || "无") + "\n\n## 请在下方上传持仓截图\n[拖拽或点击上传图片]")}`,
-      "_blank"
-    );
-    document.getElementById("successOverlay").querySelector(".success-desc").textContent = 
-      "已打开 GitHub Issue 页面，请在页面中上传截图后提交。";
-    document.getElementById("successOverlay").classList.add("show");
+    if (err.message === "body_too_large") {
+      showToast("图片内容过大，将打开手动上传页面");
+      const accountLabels = { normal: "普通账户", pension: "养老金账户", both: "两个账户" };
+      const issueTitle = `[持仓同步] ${new Date().toLocaleDateString("zh-CN")} ${accountLabels[selectedAccount]}（${selectedFiles.length}张截图）`;
+      const note = document.getElementById("noteText").value.trim();
+      fallbackManualUpload(issueTitle, note);
+    } else {
+      // 降级：打开 GitHub Issue 页面手动上传
+      const accountLabels = { normal: "普通账户", pension: "养老金账户", both: "两个账户" };
+      const issueTitle = `[持仓同步] ${new Date().toLocaleDateString("zh-CN")} ${accountLabels[selectedAccount]}（${selectedFiles.length}张截图）`;
+      const note = document.getElementById("noteText").value.trim();
+      fallbackManualUpload(issueTitle, note);
+    }
   } finally {
     btn.classList.remove("loading");
-    btn.disabled = false;
+    btn.disabled = selectedFiles.length === 0;
   }
+}
+
+function fallbackManualUpload(title, note) {
+  window.open(
+    `https://github.com/${REPO}/issues/new?title=${encodeURIComponent(title)}&labels=${ISSUE_LABEL}&body=${encodeURIComponent("## 备注说明\n" + (note || "无") + "\n\n## 请在下方逐张上传持仓截图（最多6张）\n[拖拽或点击上传图片]")}`,
+    "_blank"
+  );
+  document.getElementById("successOverlay").querySelector(".success-desc").innerHTML = 
+    "已打开 GitHub Issue 页面，请手动上传截图后提交。";
+  document.getElementById("successOverlay").classList.add("show");
 }
 
 function closeSuccess() {
   document.getElementById("successOverlay").classList.remove("show");
+  // 清空状态
+  selectedFiles.forEach(f => URL.revokeObjectURL(f.previewUrl));
+  selectedFiles = [];
+  document.getElementById("noteText").value = "";
+  updateUI();
   window.location.href = "mobile.html";
 }
 
@@ -537,20 +786,34 @@ function renderHistory() {
   container.innerHTML = history.slice(0, 5).map(h => {
     const d = new Date(h.time);
     const dateStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    return `<a href="${h.url}" target="_blank" style="text-decoration:none;color:inherit">
-      <div class="history-item">
-        <img class="history-thumb" src="${h.thumb}" alt="截图"/>
-        <div class="history-info">
-          <div class="hi-title">${accountLabels[h.account] || h.account} · ${h.file}</div>
-          <div class="hi-meta">${dateStr}</div>
-        </div>
-        <div class="history-status status-done">已提交</div>
+    const countText = h.count ? `${h.count}张` : "1张";
+    
+    // 缩略图（最多3张）
+    let thumbsHtml = "";
+    if (h.thumbs && h.thumbs.length > 0) {
+      thumbsHtml = `<div class="history-thumbs">`;
+      h.thumbs.forEach(src => {
+        thumbsHtml += `<img src="${src}" alt="截图"/>`;
+      });
+      if (h.count > 3) {
+        thumbsHtml += `<div style="width:36px;height:48px;border-radius:6px;background:var(--dark2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--dim);">+${h.count - 3}</div>`;
+      }
+      thumbsHtml += `</div>`;
+    }
+    
+    return `<a href="${h.url}" target="_blank" class="history-item">
+      ${thumbsHtml}
+      <div class="history-info">
+        <div class="hi-title">${accountLabels[h.account] || h.account} · ${countText}截图</div>
+        <div class="hi-meta">${dateStr}</div>
       </div>
+      <div class="history-status status-done">已提交</div>
     </a>`;
   }).join("");
 }
 
 // 初始化
+updateUI();
 renderHistory();
 </script>
 </body>

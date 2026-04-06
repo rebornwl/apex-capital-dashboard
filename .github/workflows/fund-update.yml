@@ -1,0 +1,116 @@
+name: 基金数据实时更新
+
+on:
+  schedule:
+    # ── 交易日关键时间点（UTC+8 → UTC 减8小时）──
+    # 开盘后 09:35 → UTC 01:35
+    - cron: '35 1 * * 1-5'
+    # 收盘前 14:30 → UTC 06:30
+    - cron: '30 6 * * 1-5'
+    # 盘后净值 15:05 → UTC 07:05
+    - cron: '5 7 * * 1-5'
+    # 晚间复盘 20:00 → UTC 12:00
+    - cron: '0 12 * * 1-5'
+  workflow_dispatch: # 允许手动触发
+  push:
+    paths:
+      - 'portfolio/holdings.md'
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 📥 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 🐍 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 🔍 检查是否为交易日
+        id: check_day
+        run: |
+          DAY=$(date +%u)
+          if [ "$DAY" -le 5 ]; then
+            echo "is_weekday=true" >> $GITHUB_OUTPUT
+            echo "📅 今天是工作日（周$DAY），执行更新"
+          else
+            echo "is_weekday=false" >> $GITHUB_OUTPUT
+            echo "😴 今天是周末，跳过更新"
+          fi
+
+      - name: 📊 更新基金数据
+        if: steps.check_day.outputs.is_weekday == 'true'
+        run: |
+          echo "══════════════════════════════════════"
+          echo "  巅峰资本 · 基金数据云端更新"
+          echo "  $(date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "══════════════════════════════════════"
+          python scripts/update_cloud.py
+
+      - name: 📝 生成更新摘要
+        if: steps.check_day.outputs.is_weekday == 'true'
+        id: summary
+        run: |
+          if [ -f data.json ]; then
+            TOTAL=$(python3 -c "import json; d=json.load(open('data.json')); print(f'¥{d[\"summary\"][\"total_value\"]:,.2f}')")
+            TODAY=$(python3 -c "import json; d=json.load(open('data.json')); print(f'{d[\"summary\"][\"today_pnl\"]:+,.2f}')" 2>/dev/null || echo "N/A")
+            HOLD=$(python3 -c "import json; d=json.load(open('data.json')); print(f'{d[\"summary\"][\"total_hold_pnl\"]:+,.2f}')" 2>/dev/null || echo "N/A")
+            TIME=$(python3 -c "import json; d=json.load(open('data.json')); print(d['update_time'])" 2>/dev/null || echo "N/A")
+            
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "today=$TODAY" >> $GITHUB_OUTPUT
+            echo "hold=$HOLD" >> $GITHUB_OUTPUT
+            echo "time=$TIME" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🚀 部署到 GitHub Pages
+        if: steps.check_day.outputs.is_weekday == 'true'
+        run: |
+          git config --local user.email "apex-capital-bot@users.noreply.github.com"
+          git config --local user.name "Apex Capital Bot"
+          git add data.json
+          
+          # 只有数据变化才提交
+          if git diff --staged --quiet; then
+            echo "ℹ️ 数据无变化，跳过提交"
+          else
+            TRIGGER="${{ github.event_name }}"
+            if [ "$TRIGGER" = "schedule" ]; then
+              CRON_MIN=$(date +%M)
+              if [ "$CRON_MIN" = "35" ]; then MSG="开盘更新"
+              elif [ "$CRON_MIN" = "30" ]; then MSG="午盘更新"
+              elif [ "$CRON_MIN" = "05" ]; then MSG="盘后更新"
+              elif [ "$CRON_MIN" = "00" ]; then MSG="晚间复盘"
+              else MSG="定时更新"
+              fi
+            elif [ "$TRIGGER" = "push" ]; then
+              MSG="持仓数据更新"
+            else
+              MSG="手动触发更新"
+            fi
+            
+            git commit -m "🤖 $MSG $(date '+%Y-%m-%d %H:%M')"
+            git push
+            echo "✅ 已部署到 GitHub Pages"
+          fi
+
+      - name: 📋 发布更新摘要
+        if: steps.check_day.outputs.is_weekday == 'true' && steps.summary.outputs.total != ''
+        run: |
+          echo "## 📊 巅峰资本 · 数据更新完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 指标 | 数值 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| ⏰ 更新时间 | ${{ steps.summary.outputs.time }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 💰 总资产 | ${{ steps.summary.outputs.total }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📈 今日盈亏 | ${{ steps.summary.outputs.today }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📊 持有收益 | ${{ steps.summary.outputs.hold }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌐 触发方式 | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
