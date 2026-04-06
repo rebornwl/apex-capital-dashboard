@@ -31,6 +31,43 @@ body{
   padding-bottom:calc(var(--safe-bot) + 80px);
 }
 
+/* ── Loading ── */
+.loading-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;
+  background:var(--dark);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity .4s;
+}
+.loading-overlay.hide{opacity:0;pointer-events:none;}
+.loading-logo{
+  width:64px;height:64px;border-radius:16px;
+  background:linear-gradient(135deg,var(--gold),var(--gold-l));
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;box-shadow:0 0 24px rgba(201,168,76,.4);
+  animation:logoPulse 1.5s ease-in-out infinite;
+}
+@keyframes logoPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+.loading-text{color:var(--dim);font-size:13px;margin-top:16px;letter-spacing:1px;}
+.loading-dots::after{content:'';animation:dots 1.5s infinite;}
+@keyframes dots{0%{content:'';}25%{content:'.';}50%{content:'..';}75%{content:'...';}100%{content:'';}}
+
+/* ── Error ── */
+.error-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:9998;
+  background:var(--dark);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px;
+}
+.error-overlay.show{display:flex;}
+.error-icon{font-size:48px;margin-bottom:16px;}
+.error-title{font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.error-msg{font-size:13px;color:var(--dim);text-align:center;line-height:1.6;margin-bottom:24px;}
+.error-btn{
+  background:linear-gradient(135deg,var(--gold),var(--gold-l));
+  color:var(--dark);font-weight:700;font-size:14px;
+  border:none;border-radius:12px;padding:12px 32px;cursor:pointer;
+}
+
 /* ── 顶部状态栏 ── */
 .topbar{
   position:sticky;top:0;z-index:100;
@@ -52,6 +89,7 @@ body{
 .logo-text p{font-size:10px;color:var(--dim);letter-spacing:2px;margin-top:1px;}
 .topbar-date{font-size:11px;color:var(--dim);text-align:right;}
 .topbar-date .live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#22c55e;margin-right:4px;animation:pulse 2s infinite;}
+.topbar-date .live-dot.off{background:#fbbf24;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
 
 /* ── 总资产大卡 ── */
@@ -221,7 +259,7 @@ body{
 .chart-label{font-size:10px;color:var(--dim);width:56px;text-align:right;flex-shrink:0;}
 .chart-bar-bg{flex:1;background:rgba(255,255,255,.06);border-radius:4px;height:18px;overflow:hidden;}
 .chart-bar{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:6px;font-size:10px;font-weight:600;white-space:nowrap;transition:width .6s ease;}
-.chart-pct{font-size:10px;color:var(--dim);width:32px;text-align:right;flex-shrink:0;}
+.chart-pct{font-size:10px;color:var(--dim);width:48px;text-align:right;flex-shrink:0;}
 
 /* ── 搜索/筛选 ── */
 .filter-row{
@@ -236,6 +274,19 @@ body{
 }
 .filter-btn.active{background:rgba(201,168,76,.15);border-color:var(--gold);color:var(--gold);}
 
+/* ── 排行卡片（精简）── */
+.rank-card{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:14px 16px;
+}
+.rank-top{display:flex;align-items:center;justify-content:space-between;}
+.rank-info{flex:1;min-width:0;}
+.rank-name{font-size:13px;font-weight:600;line-height:1.4;}
+.rank-code{font-size:10px;color:var(--dim);margin-top:2px;}
+.rank-right{text-align:right;}
+.rank-pct{font-size:18px;font-weight:800;}
+.rank-pnl{font-size:10px;color:var(--dim);margin-top:2px;}
+
 /* ── 设置页 ── */
 .settings-wrap{padding:0 16px;}
 .set-section{margin-bottom:24px;}
@@ -249,36 +300,45 @@ body{
 .set-row-left{display:flex;align-items:center;gap:10px;font-size:13px;}
 .set-row-icon{font-size:18px;}
 .set-row-right{font-size:12px;color:var(--dim);}
-.set-how-to{
-  background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(168,85,247,.08));
-  border:1px solid rgba(59,130,246,.2);border-radius:16px;padding:16px;
-  margin:0 16px;
+
+/* ── 刷新按钮 ── */
+.refresh-btn{
+  position:fixed;bottom:calc(var(--safe-bot) + 90px);right:16px;z-index:150;
+  width:48px;height:48px;border-radius:50%;border:none;
+  background:linear-gradient(135deg,var(--gold),var(--gold-l));
+  color:var(--dark);font-size:20px;cursor:pointer;
+  box-shadow:0 4px 16px rgba(201,168,76,.4);
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .2s;
 }
-.set-how-to h3{font-size:13px;color:#60a5fa;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.set-how-to ol{padding-left:16px;display:flex;flex-direction:column;gap:8px;}
-.set-how-to li{font-size:12px;color:var(--dim);line-height:1.6;}
-.set-how-to li strong{color:var(--text);}
-.set-how-to code{
-  background:rgba(255,255,255,.1);border-radius:4px;
-  padding:1px 5px;font-size:11px;color:var(--gold-l);
-  font-family:'SF Mono','Menlo',monospace;
-}
-.highlight-box{
-  background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.25);
-  border-radius:12px;padding:12px 14px;margin:10px 16px 0;
-}
-.highlight-box p{font-size:12px;color:var(--dim);line-height:1.7;}
-.highlight-box strong{color:var(--gold-l);}
+.refresh-btn:active{transform:scale(.9);}
+.refresh-btn.spinning svg{animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
 /* ── 通用工具类 ── */
 .mt8{margin-top:8px;}
 .pb-nav{padding-bottom:calc(var(--safe-bot) + 70px);}
+.text-center{text-align:center;}
 </style>
 </head>
 <body>
 
+<!-- Loading -->
+<div class="loading-overlay" id="loading">
+  <div class="loading-logo">📈</div>
+  <div class="loading-text">加载持仓数据<span class="loading-dots"></span></div>
+</div>
+
+<!-- Error -->
+<div class="error-overlay" id="errorPanel">
+  <div class="error-icon">📡</div>
+  <div class="error-title">数据加载失败</div>
+  <div class="error-msg" id="errorMsg">请检查网络连接后重试</div>
+  <button class="error-btn" onclick="location.reload()">🔄 重新加载</button>
+</div>
+
 <!-- 顶部导航 -->
-<div class="topbar">
+<div class="topbar" id="topbar" style="display:none">
   <div class="topbar-logo">
     <div class="logo-icon">📈</div>
     <div class="logo-text">
@@ -287,711 +347,85 @@ body{
     </div>
   </div>
   <div class="topbar-date">
-    <span class="live-dot"></span>
+    <span class="live-dot" id="liveDot"></span>
     <span id="live-time">--:--:--</span><br/>
-    <span style="font-size:10px">2026-04-03 数据</span>
+    <span style="font-size:10px" id="dataDate">加载中...</span>
   </div>
 </div>
 
 <!-- ══════════════════════ TAB: 总览 ══════════════════════ -->
 <div id="tab-home" class="tab-content active">
-
-  <!-- 英雄总资产卡 -->
-  <div class="hero">
-    <div class="hero-label">总资产（两账户合计）</div>
-    <div class="hero-amount">¥281,934</div>
-    <div class="hero-sub">普通账户 ¥269,054 &nbsp;+&nbsp; 养老金 ¥12,880</div>
-    <div class="hero-today">
-      <div class="hero-stat">
-        <div class="val up">+¥585</div>
-        <div class="lbl">今日盈亏</div>
-      </div>
-      <div class="hero-stat">
-        <div class="val up">+¥9,808</div>
-        <div class="lbl">持有收益</div>
-      </div>
-      <div class="hero-stat">
-        <div class="val up">+¥28,709</div>
-        <div class="lbl">累计收益</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 速览行 -->
-  <div class="quick-row">
-    <div class="q-card">
-      <div class="q-val up">+51.18%</div>
-      <div class="q-lbl">最强基金收益</div>
-      <div class="q-sub" style="color:var(--dim);font-size:11px">易方达全球成长A</div>
-    </div>
-    <div class="q-card">
-      <div class="q-val down">-18.95%</div>
-      <div class="q-lbl">最大亏损仓位</div>
-      <div class="q-sub" style="color:var(--dim);font-size:11px">汇添富恒生科技C</div>
-    </div>
-  </div>
-  <div class="quick-row mt8">
-    <div class="q-card">
-      <div class="q-val gold">25支</div>
-      <div class="q-lbl">持仓基金总数</div>
-      <div class="q-sub down">⚠ 建议精简≤15</div>
-    </div>
-    <div class="q-card">
-      <div class="q-val" style="color:#a855f7">44.3%</div>
-      <div class="q-lbl">QDII海外仓位</div>
-      <div class="q-sub down">⚠ 汇率风险偏高</div>
-    </div>
-  </div>
-
-  <!-- CRO风险预警 -->
-  <div class="sec-hd">🛡 CRO 实时风险预警</div>
-  <div class="warn-list">
-    <div class="warn-item red">
-      <div class="warn-icon">🔴</div>
-      <div class="warn-text">
-        <div class="wt">汇添富恒生科技C — 亏损 -18.95%</div>
-        <div class="wd">港科股持续承压，建议评估止损，持仓¥25,340</div>
-      </div>
-    </div>
-    <div class="warn-item red">
-      <div class="warn-icon">🔴</div>
-      <div class="warn-text">
-        <div class="wt">中欧周期优选A — 亏损 -14.16%</div>
-        <div class="wd">周期板块持续偏弱，持仓¥8,584，建议清仓</div>
-      </div>
-    </div>
-    <div class="warn-item yellow">
-      <div class="warn-icon">🟡</div>
-      <div class="warn-text">
-        <div class="wt">AI主题ETF联接C — 亏损 -11.98%</div>
-        <div class="wd">短期回调，AI赛道长期逻辑仍在，可持有观察</div>
-      </div>
-    </div>
-    <div class="warn-item yellow">
-      <div class="warn-icon">🟡</div>
-      <div class="warn-text">
-        <div class="wt">QDII仓位占比 44.3%</div>
-        <div class="wd">贸易摩擦背景下汇率风险偏高，建议控制在35%以内</div>
-      </div>
-    </div>
-    <div class="warn-item yellow">
-      <div class="warn-icon">🟡</div>
-      <div class="warn-text">
-        <div class="wt">分散度过高 — 25支基金</div>
-        <div class="wd">多只仓位不足1%，意义不大，建议精简至15支</div>
-      </div>
-    </div>
-    <div class="warn-item green">
-      <div class="warn-icon">🟢</div>
-      <div class="warn-text">
-        <div class="wt">易方达全球成长（A+C）表现优异</div>
-        <div class="wd">+51.18% / +18.46%，核心Alpha，建议继续持有</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CIO调仓建议 -->
-  <div class="sec-hd">📋 CIO 调仓建议</div>
-  <div class="advice-list">
-    <div class="adv-item">
-      <div class="adv-op op-merge">合并</div>
-      <div class="adv-text">
-        <div class="at">012920(A) → 012922(C)</div>
-        <div class="ad">同基金A/C份额重复持仓，合并至C降低费率</div>
-      </div>
-    </div>
-    <div class="adv-item">
-      <div class="adv-op op-sell">清仓</div>
-      <div class="adv-text">
-        <div class="at">013128 汇添富恒生科技C</div>
-        <div class="ad">-18.95%亏损，港科承压，止损释放资金</div>
-      </div>
-    </div>
-    <div class="adv-item">
-      <div class="adv-op op-sell">清仓</div>
-      <div class="adv-text">
-        <div class="at">019888 中欧周期优选A</div>
-        <div class="ad">-14.16%亏损，周期板块持续偏弱</div>
-      </div>
-    </div>
-    <div class="adv-item">
-      <div class="adv-op op-sell">清仓</div>
-      <div class="adv-text">
-        <div class="at">378006 / 016453</div>
-        <div class="ad">仓位均不足1%，分散无意义，建议清仓整合</div>
-      </div>
-    </div>
-    <div class="adv-item">
-      <div class="adv-op op-hold">持有</div>
-      <div class="adv-text">
-        <div class="at">012922 易方达全球成长C</div>
-        <div class="ad">+18.46%核心仓位，全球成长赛道，继续持有</div>
-      </div>
-    </div>
-    <div class="adv-item">
-      <div class="adv-op op-buy">增配</div>
-      <div class="adv-text">
-        <div class="at">460300 华泰柏瑞沪深300</div>
-        <div class="ad">A股底仓偏低，估值合理，可适当增配</div>
-      </div>
-    </div>
-  </div>
-
-  <div style="height:24px"></div>
+  <!-- 由JS动态渲染 -->
 </div>
 
 <!-- ══════════════════════ TAB: 持仓 ══════════════════════ -->
 <div id="tab-portfolio" class="tab-content">
-
-  <!-- 筛选器 -->
-  <div style="height:12px"></div>
-  <div class="filter-row">
-    <button class="filter-btn active" onclick="filterFunds('all',this)">全部(25)</button>
-    <button class="filter-btn" onclick="filterFunds('qdii',this)">QDII(8)</button>
-    <button class="filter-btn" onclick="filterFunds('up',this)">盈利(7)</button>
-    <button class="filter-btn" onclick="filterFunds('down',this)">亏损(13)</button>
-    <button class="filter-btn" onclick="filterFunds('pension',this)">养老金(5)</button>
-  </div>
-
-  <!-- 普通账户 -->
-  <div class="sec-hd" id="sec-normal">💼 普通账户 · ¥269,054</div>
-  <div class="fund-list" id="fund-normal">
-
-    <div class="f-card" data-type="qdii" data-profit="up">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">易方达全球成长精选混合A</div>
-          <div class="f-code">012920 · QDII混合</div>
-        </div>
-        <span class="f-badge badge-qdii">QDII</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥55,765</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥390</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val up">+51.18%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-      <div class="f-warn">⚠ 与012922重复持仓，建议合并至C份额</div>
-    </div>
-
-    <div class="f-card" data-type="qdii" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">汇添富恒生科技ETF联接C</div>
-          <div class="f-code">013128 · QDII指数</div>
-        </div>
-        <span class="f-badge badge-qdii">QDII</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥25,340</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥21</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-18.95%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-      <div class="f-warn" style="color:var(--up);background:rgba(244,63,94,.08);border-color:rgba(244,63,94,.2)">🔴 CRO预警：最大亏损仓位，建议评估止损</div>
-    </div>
-
-    <div class="f-card" data-type="stock" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">摩根安全战略股票C</div>
-          <div class="f-code">015172 · 股票型</div>
-        </div>
-        <span class="f-badge badge-stock">股票</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥19,351</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥126</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-3.25%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="index" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">华泰柏瑞沪深300ETF联接A</div>
-          <div class="f-code">460300 · 指数型</div>
-        </div>
-        <span class="f-badge badge-index">指数</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥18,978</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥150</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-5.11%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="mix" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">易方达竞争优势企业混合C</div>
-          <div class="f-code">010849 · 主动混合</div>
-        </div>
-        <span class="f-badge badge-mix">混合</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥18,099</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥135</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-6.83%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="mix" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">新华优选分红混合C</div>
-          <div class="f-code">025416 · 主动混合</div>
-        </div>
-        <span class="f-badge badge-mix">混合</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥16,611</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥372</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-3.06%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="mix" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">东吴移动互联混合C</div>
-          <div class="f-code">002170 · 主动混合</div>
-        </div>
-        <span class="f-badge badge-mix">混合</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥16,135</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥27</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-3.81%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="qdii" data-profit="up">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">嘉实全球产业升级股票C</div>
-          <div class="f-code">017731 · QDII股票</div>
-        </div>
-        <span class="f-badge badge-qdii">QDII</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥13,451</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥227</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val up">+22.80%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="mix" data-profit="up">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">摩根新兴动力混合C</div>
-          <div class="f-code">014642 · 主动混合</div>
-        </div>
-        <span class="f-badge badge-mix">混合</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥10,053</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥18</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val up">+0.53%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="mix" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">交银趋势混合C</div>
-          <div class="f-code">013430 · 主动混合</div>
-        </div>
-        <span class="f-badge badge-mix">混合</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥9,658</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥82</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-3.42%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="qdii" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">天弘全球高端制造混合C</div>
-          <div class="f-code">016665 · QDII混合</div>
-        </div>
-        <span class="f-badge badge-qdii">QDII</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥9,641</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥147</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-3.59%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="bond" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">汇添富稳健收益混合A</div>
-          <div class="f-code">009736 · 混合偏债</div>
-        </div>
-        <span class="f-badge badge-bond">债混</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥9,088</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥3</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-4.22%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="mix" data-profit="up">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">中航机遇领航混合C</div>
-          <div class="f-code">018957 · 主动混合</div>
-        </div>
-        <span class="f-badge badge-mix">混合</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥8,956</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥331</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val up">+6.42%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="index" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">易方达中证AI主题ETF联接C</div>
-          <div class="f-code">012734 · 指数型</div>
-        </div>
-        <span class="f-badge badge-index">指数</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥8,802</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥61</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-11.98%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="qdii" data-profit="up">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">易方达全球成长精选混合C</div>
-          <div class="f-code">012922 · QDII混合</div>
-        </div>
-        <span class="f-badge badge-qdii">QDII</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥8,766</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥61</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val up">+18.46%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="mix" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">中欧周期优选混合A</div>
-          <div class="f-code">019888 · 主动混合</div>
-        </div>
-        <span class="f-badge badge-mix">混合</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥8,584</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥131</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-14.16%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-      <div class="f-warn" style="color:var(--up);background:rgba(244,63,94,.08);border-color:rgba(244,63,94,.2)">🔴 CRO预警：建议清仓，周期板块持续偏弱</div>
-    </div>
-
-    <div class="f-card" data-type="qdii" data-profit="up">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">嘉实全球产业升级股票A</div>
-          <div class="f-code">017730 · QDII股票</div>
-        </div>
-        <span class="f-badge badge-qdii">QDII</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥5,552</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥94</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val up">+6.76%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="stock" data-profit="up">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">同泰行业优选股票C</div>
-          <div class="f-code">012497 · 股票型</div>
-        </div>
-        <span class="f-badge badge-stock">股票</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥3,182</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val up">+¥176</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val up">+2.63%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-    </div>
-
-    <div class="f-card" data-type="qdii" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">摩根全球新兴市场混合(QDII)</div>
-          <div class="f-code">378006 · QDII混合</div>
-        </div>
-        <span class="f-badge badge-qdii">QDII</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥1,920</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥37</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-4.00%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-      <div class="f-warn">⚠ 仓位&lt;1%，意义不大，建议清仓整合</div>
-    </div>
-
-    <div class="f-card" data-type="qdii" data-profit="down">
-      <div class="f-top">
-        <div class="f-info">
-          <div class="f-name">南方纳斯达克100指数C</div>
-          <div class="f-code">016453 · QDII指数</div>
-        </div>
-        <span class="f-badge badge-qdii">QDII</span>
-      </div>
-      <div class="f-nums">
-        <div class="f-num"><div class="n-val gold">¥1,124</div><div class="n-lbl">市值</div></div>
-        <div class="f-num"><div class="n-val down">-¥1</div><div class="n-lbl">今日</div></div>
-        <div class="f-num"><div class="n-val down">-6.29%</div><div class="n-lbl">持有收益</div></div>
-      </div>
-      <div class="f-warn">⚠ 仓位&lt;1%，意义不大，建议清仓整合</div>
-    </div>
-
-  </div>
-
-  <!-- 养老金账户 -->
-  <div class="sec-hd" style="margin-top:24px">🏦 养老金账户 · ¥12,880</div>
-  <div style="padding:0 16px" id="fund-pension">
-    <div class="pension-card">
-      <div class="pension-title">🏦 个人养老金账户 <span style="margin-left:auto;font-size:10px;color:var(--dim)">持有-¥120 (-0.93%)</span></div>
-      <div class="pension-nums">
-        <div class="pension-num"><div class="pn-val gold">¥12,880</div><div class="pn-lbl">总资产</div></div>
-        <div class="pension-num"><div class="pn-val down">-¥10</div><div class="pn-lbl">今日盈亏</div></div>
-        <div class="pension-num"><div class="pn-val down">-¥120</div><div class="pn-lbl">持有收益</div></div>
-      </div>
-      <div class="pension-funds">
-        <div class="pf-row">
-          <div class="pf-name">天弘养老2035三年Y (017268)</div>
-          <div class="pf-right"><div class="pf-amt">¥5,982</div><div class="pf-chg down">-0.29%</div></div>
-        </div>
-        <div class="pf-row">
-          <div class="pf-name">富国鑫年混合Y (017294)</div>
-          <div class="pf-right"><div class="pf-amt">¥4,033</div><div class="pf-chg up">+0.83%</div></div>
-        </div>
-        <div class="pf-row">
-          <div class="pf-name">工银养老2050五年Y (017353)</div>
-          <div class="pf-right"><div class="pf-amt">¥1,885</div><div class="pf-chg down">-5.74%</div></div>
-        </div>
-        <div class="pf-row">
-          <div class="pf-name">华泰柏瑞红利低波ETF Y (022951)</div>
-          <div class="pf-right"><div class="pf-amt">¥514</div><div class="pf-chg up">+2.73%</div></div>
-        </div>
-        <div class="pf-row">
-          <div class="pf-name">华夏中证A500ETF联接Y (022979)</div>
-          <div class="pf-right"><div class="pf-amt">¥466</div><div class="pf-chg down">-6.79%</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div style="height:24px"></div>
+  <!-- 由JS动态渲染 -->
 </div>
 
 <!-- ══════════════════════ TAB: 分析 ══════════════════════ -->
 <div id="tab-analysis" class="tab-content">
-
-  <div style="height:12px"></div>
-  <div class="sec-hd">📊 仓位类型分布</div>
-  <div class="chart-wrap">
-    <div class="chart-row">
-      <div class="chart-label">QDII</div>
-      <div class="chart-bar-bg"><div class="chart-bar" style="width:44.3%;background:linear-gradient(to right,#3b82f6,#60a5fa)">44.3%</div></div>
-      <div class="chart-pct">¥119,500</div>
-    </div>
-    <div class="chart-row">
-      <div class="chart-label">主动混合</div>
-      <div class="chart-bar-bg"><div class="chart-bar" style="width:36.2%;background:linear-gradient(to right,#f97316,#fb923c)">36.2%</div></div>
-      <div class="chart-pct">¥97,800</div>
-    </div>
-    <div class="chart-row">
-      <div class="chart-label">指数型</div>
-      <div class="chart-bar-bg"><div class="chart-bar" style="width:10%;background:linear-gradient(to right,#a855f7,#c084fc)">10.0%</div></div>
-      <div class="chart-pct">¥27,000</div>
-    </div>
-    <div class="chart-row">
-      <div class="chart-label">股票型</div>
-      <div class="chart-bar-bg"><div class="chart-bar" style="width:6.6%;background:linear-gradient(to right,#ec4899,#f472b6)">6.6%</div></div>
-      <div class="chart-pct">¥17,800</div>
-    </div>
-    <div class="chart-row">
-      <div class="chart-label">养老FOF</div>
-      <div class="chart-bar-bg"><div class="chart-bar" style="width:4.3%;background:linear-gradient(to right,#14b8a6,#2dd4bf)">4.3%</div></div>
-      <div class="chart-pct">¥11,900</div>
-    </div>
-    <div class="chart-row">
-      <div class="chart-label">债混</div>
-      <div class="chart-bar-bg"><div class="chart-bar" style="width:3.2%;background:linear-gradient(to right,#eab308,#fbbf24)">3.2%</div></div>
-      <div class="chart-pct">¥9,100</div>
-    </div>
-  </div>
-
-  <div class="sec-hd" style="margin-top:8px">🏆 收益排行榜 Top 5（普通账户）</div>
-  <div class="fund-list">
-    <div class="f-card">
-      <div class="f-top">
-        <div class="f-info"><div class="f-name">🥇 易方达全球成长A</div><div class="f-code">012920</div></div>
-        <div style="text-align:right"><div class="n-val up" style="font-size:18px;font-weight:800">+51.18%</div><div style="font-size:10px;color:var(--dim)">+¥18,878</div></div>
-      </div>
-    </div>
-    <div class="f-card">
-      <div class="f-top">
-        <div class="f-info"><div class="f-name">🥈 嘉实全球产业升级C</div><div class="f-code">017731</div></div>
-        <div style="text-align:right"><div class="n-val up" style="font-size:18px;font-weight:800">+22.80%</div><div style="font-size:10px;color:var(--dim)">+¥2,498</div></div>
-      </div>
-    </div>
-    <div class="f-card">
-      <div class="f-top">
-        <div class="f-info"><div class="f-name">🥉 易方达全球成长C</div><div class="f-code">012922</div></div>
-        <div style="text-align:right"><div class="n-val up" style="font-size:18px;font-weight:800">+18.46%</div><div style="font-size:10px;color:var(--dim)">+¥1,366</div></div>
-      </div>
-    </div>
-    <div class="f-card">
-      <div class="f-top">
-        <div class="f-info"><div class="f-name">嘉实全球产业升级A</div><div class="f-code">017730</div></div>
-        <div style="text-align:right"><div class="n-val up" style="font-size:18px;font-weight:800">+6.76%</div><div style="font-size:10px;color:var(--dim)">+¥352</div></div>
-      </div>
-    </div>
-    <div class="f-card">
-      <div class="f-top">
-        <div class="f-info"><div class="f-name">中航机遇领航混合C</div><div class="f-code">018957</div></div>
-        <div style="text-align:right"><div class="n-val up" style="font-size:18px;font-weight:800">+6.42%</div><div style="font-size:10px;color:var(--dim)">+¥540</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="sec-hd" style="margin-top:8px">💸 亏损排行榜（需关注）</div>
-  <div class="fund-list">
-    <div class="f-card">
-      <div class="f-top">
-        <div class="f-info"><div class="f-name">汇添富恒生科技C</div><div class="f-code">013128</div></div>
-        <div style="text-align:right"><div class="n-val down" style="font-size:18px;font-weight:800">-18.95%</div><div style="font-size:10px;color:var(--dim)">-¥5,927</div></div>
-      </div>
-    </div>
-    <div class="f-card">
-      <div class="f-top">
-        <div class="f-info"><div class="f-name">中欧周期优选混合A</div><div class="f-code">019888</div></div>
-        <div style="text-align:right"><div class="n-val down" style="font-size:18px;font-weight:800">-14.16%</div><div style="font-size:10px;color:var(--dim)">-¥1,416</div></div>
-      </div>
-    </div>
-    <div class="f-card">
-      <div class="f-top">
-        <div class="f-info"><div class="f-name">易方达AI主题ETF联接C</div><div class="f-code">012734</div></div>
-        <div style="text-align:right"><div class="n-val down" style="font-size:18px;font-weight:800">-11.98%</div><div style="font-size:10px;color:var(--dim)">-¥1,198</div></div>
-      </div>
-    </div>
-  </div>
-
-  <div style="height:24px"></div>
+  <!-- 由JS动态渲染 -->
 </div>
 
 <!-- ══════════════════════ TAB: 访问指南 ══════════════════════ -->
 <div id="tab-settings" class="tab-content">
-
   <div style="height:12px"></div>
-  <div class="sec-hd">📱 iPhone 访问方案</div>
-
-  <div class="set-how-to">
-    <h3>🏠 方案一：局域网（家中/办公室）</h3>
-    <ol>
-      <li>在电脑上以 <strong>管理员身份</strong> 打开 PowerShell</li>
-      <li>运行命令：<code>python -m http.server 8888 --directory "C:\Users\Administrator\Documents\基金监控及推荐\dashboard"</code></li>
-      <li>查看电脑IP：<code>ipconfig</code> → 找到 <strong>IPv4 地址</strong>（如 192.168.1.100）</li>
-      <li>iPhone 与电脑连同一WiFi，Safari 打开：<code>http://192.168.1.100:8888/mobile.html</code></li>
-      <li>点 Safari 分享按钮 → <strong>「添加到主屏幕」</strong> 即可像App一样使用</li>
-    </ol>
-  </div>
-
-  <div class="highlight-box mt8">
-    <p>💡 <strong>添加到主屏幕后</strong>，图标显示为"巅峰资本"，点开全屏显示，体验和原生App一样流畅。</p>
-  </div>
-
-  <div class="set-how-to" style="margin-top:12px">
-    <h3>🌐 方案二：公网随时访问（推荐）</h3>
-    <ol>
-      <li>安装 <strong>Cloudflare Tunnel</strong>（免费）或 <strong>ngrok</strong></li>
-      <li>一行命令：<code>cloudflared tunnel --url http://localhost:8888</code></li>
-      <li>获得公网链接如：<code>https://xxxx.trycloudflare.com</code></li>
-      <li>iPhone 直接访问该链接，无需在同一网络</li>
-      <li>出门在外、4G/5G 均可实时查看</li>
-    </ol>
-  </div>
-
-  <div class="set-how-to" style="margin-top:12px">
-    <h3>☁️ 方案三：云部署（永久在线）</h3>
-    <ol>
-      <li>将 <code>dashboard/</code> 文件夹上传至 <strong>GitHub</strong></li>
-      <li>开启 <strong>GitHub Pages</strong>（免费，自动HTTPS）</li>
-      <li>获得永久链接如：<code>https://yourname.github.io/apex-capital/mobile.html</code></li>
-      <li>无需开电脑，7×24小时随时访问</li>
-    </ol>
-  </div>
-
-  <div class="sec-hd" style="margin-top:8px">⚡ 快速启动命令（复制即用）</div>
-  <div style="padding:0 16px">
+  <div class="sec-hd">📱 访问信息</div>
+  <div style="padding:0 16px;margin-bottom:20px">
     <div class="set-card">
       <div class="set-row">
-        <div class="set-row-left"><span class="set-row-icon">🖥️</span>启动本地服务器</div>
-        <div class="set-row-right">局域网访问</div>
-      </div>
-      <div style="padding:0 16px 14px">
-        <div style="background:#0a0e1a;border-radius:10px;padding:10px 12px;font-family:'SF Mono','Menlo',monospace;font-size:11px;color:var(--gold-l);line-height:1.8;word-break:break-all">
-          python -m http.server 8888 --directory "C:\Users\Administrator\Documents\基金监控及推荐\dashboard"
-        </div>
+        <div class="set-row-left"><span class="set-row-icon">🌐</span>永久访问地址</div>
+        <div class="set-row-right" style="color:var(--gold-l);font-size:11px;max-width:160px;text-align:right;word-break:break-all">rebornwl.github.io/apex-capital-dashboard</div>
       </div>
       <div class="set-row">
-        <div class="set-row-left"><span class="set-row-icon">🔍</span>查看本机IP</div>
-        <div class="set-row-right">用于iPhone访问</div>
-      </div>
-      <div style="padding:0 16px 14px">
-        <div style="background:#0a0e1a;border-radius:10px;padding:10px 12px;font-family:'SF Mono','Menlo',monospace;font-size:11px;color:var(--gold-l)">
-          ipconfig | findstr "IPv4"
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="sec-hd" style="margin-top:8px">ℹ️ 当前数据状态</div>
-  <div style="padding:0 16px;margin-bottom:24px">
-    <div class="set-card">
-      <div class="set-row">
-        <div class="set-row-left"><span class="set-row-icon">📅</span>数据基准日</div>
-        <div class="set-row-right">2026-04-03</div>
+        <div class="set-row-left"><span class="set-row-icon">📅</span>数据更新时间</div>
+        <div class="set-row-right" id="setUpdateTime">--</div>
       </div>
       <div class="set-row">
-        <div class="set-row-left"><span class="set-row-icon">💰</span>总资产</div>
-        <div class="set-row-right gold">¥281,934</div>
+        <div class="set-row-left"><span class="set-row-icon">📊</span>交易状态</div>
+        <div class="set-row-right" id="setTradingStatus">--</div>
       </div>
       <div class="set-row">
-        <div class="set-row-left"><span class="set-row-icon">📊</span>持仓数量</div>
-        <div class="set-row-right">25支基金</div>
+        <div class="set-row-left"><span class="set-row-icon">🔄</span>更新方式</div>
+        <div class="set-row-right" style="color:#22c55e">自动（交易日14:45）</div>
       </div>
       <div class="set-row">
         <div class="set-row-left"><span class="set-row-icon">🤖</span>智能体团队</div>
         <div class="set-row-right">10个在线</div>
       </div>
-      <div class="set-row">
-        <div class="set-row-left"><span class="set-row-icon">🔄</span>数据更新</div>
-        <div class="set-row-right" style="color:#fbbf24">手动更新</div>
-      </div>
     </div>
   </div>
 
+  <div class="sec-hd">📋 今日汇报</div>
+  <div style="padding:0 16px;margin-bottom:20px">
+    <div class="set-card" style="padding:16px">
+      <pre id="reportText" style="font-size:12px;color:var(--dim);line-height:1.8;white-space:pre-wrap;font-family:'PingFang SC',sans-serif">加载中...</pre>
+    </div>
+  </div>
+
+  <div class="sec-hd">💡 使用说明</div>
+  <div style="padding:0 16px;margin-bottom:24px">
+    <div class="set-card" style="padding:16px">
+      <div style="font-size:12px;color:var(--dim);line-height:1.8">
+        <p>1. 每个交易日 <strong style="color:var(--gold-l)">14:45</strong> 自动更新数据</p>
+        <p>2. 点击右下角 <strong style="color:var(--gold-l)">🔄</strong> 可手动刷新</p>
+        <p>3. 添加到主屏幕可获得类App体验</p>
+        <p>4. 数据来源：天天基金实时估值API</p>
+        <p style="margin-top:8px;color:var(--dim);font-size:11px">电脑关机也能访问，CDN全球加速</p>
+      </div>
+    </div>
+  </div>
 </div>
+
+<!-- 刷新按钮 -->
+<button class="refresh-btn" id="refreshBtn" onclick="refreshData()" style="display:none" title="刷新数据">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="23 4 23 10 17 10"></polyline>
+    <polyline points="1 20 1 14 7 14"></polyline>
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+  </svg>
+</button>
 
 <!-- ── 底部Tab栏 ── -->
 <nav class="tab-bar">
@@ -1008,13 +442,409 @@ body{
     <span>分析</span>
   </div>
   <div class="tab-item" onclick="switchTab('settings',this)">
-    <div class="tab-icon">📱</div>
-    <span>访问</span>
+    <div class="tab-icon">⚙️</div>
+    <span>更多</span>
   </div>
 </nav>
 
 <script>
-// ── 实时时钟 ──
+// ══════════════════════════════════════
+// 全局数据
+// ══════════════════════════════════════
+let D = null; // 全局数据对象
+
+const TYPE_LABELS = {
+  qdii: "QDII", mix: "混合", index: "指数", stock: "股票", fof: "养老FOF", bond: "债混"
+};
+const TYPE_COLORS = {
+  qdii: {bg:"rgba(59,130,246,.15)",fg:"#60a5fa",bar:["#3b82f6","#60a5fa"]},
+  mix:  {bg:"rgba(249,115,22,.15)",fg:"#fb923c",bar:["#f97316","#fb923c"]},
+  index:{bg:"rgba(168,85,247,.15)",fg:"#c084fc",bar:["#a855f7","#c084fc"]},
+  stock:{bg:"rgba(236,72,153,.15)",fg:"#f472b6",bar:["#ec4899","#f472b6"]},
+  fof:  {bg:"rgba(20,184,166,.15)",fg:"#2dd4bf",bar:["#14b8a6","#2dd4bf"]},
+  bond: {bg:"rgba(250,204,21,.15)",fg:"#fbbf24",bar:["#eab308","#fbbf24"]}
+};
+const MEDALS = ["🥇","🥈","🥉"];
+
+function fmt(n){return n>=0?"+":"-";}
+function fmtMoney(n){return (n>=0?"":"-")+"¥"+Math.abs(n).toLocaleString("zh-CN",{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtPct(n){return (n>=0?"+":"")+n.toFixed(2)+"%";}
+
+// ══════════════════════════════════════
+// 数据加载
+// ══════════════════════════════════════
+async function loadData(){
+  const loading = document.getElementById("loading");
+  const error = document.getElementById("errorPanel");
+  const errorMsg = document.getElementById("errorMsg");
+  
+  try {
+    const resp = await fetch("data.json?t="+Date.now());
+    if(!resp.ok) throw new Error("HTTP "+resp.status);
+    D = await resp.json();
+    
+    loading.classList.add("hide");
+    setTimeout(()=>{loading.style.display="none";},400);
+    document.getElementById("topbar").style.display="flex";
+    document.getElementById("refreshBtn").style.display="flex";
+    
+    renderAll();
+  } catch(e){
+    loading.style.display="none";
+    errorMsg.textContent = e.message || "网络异常，请稍后重试";
+    error.classList.add("show");
+  }
+}
+
+async function refreshData(){
+  const btn = document.getElementById("refreshBtn");
+  btn.classList.add("spinning");
+  try {
+    const resp = await fetch("data.json?t="+Date.now());
+    if(!resp.ok) throw new Error("HTTP "+resp.status);
+    D = await resp.json();
+    renderAll();
+  } catch(e){
+    // silently fail - maybe show a toast
+  }
+  btn.classList.remove("spinning");
+}
+
+// ══════════════════════════════════════
+// 渲染入口
+// ══════════════════════════════════════
+function renderAll(){
+  if(!D) return;
+  
+  // 顶栏
+  document.getElementById("dataDate").textContent = D.update_time_short+" "+D.trading_status;
+  document.getElementById("liveDot").className = "live-dot" + (D.is_trading_day?"":" off");
+  
+  renderHome();
+  renderPortfolio();
+  renderAnalysis();
+  
+  // 设置页
+  document.getElementById("setUpdateTime").textContent = D.update_time;
+  document.getElementById("setTradingStatus").textContent = D.trading_status;
+  document.getElementById("reportText").textContent = D.report_text;
+}
+
+// ══════════════════════════════════════
+// Tab: 总览
+// ══════════════════════════════════════
+function renderHome(){
+  const s = D.summary;
+  const normalFunds = D.funds.filter(f=>!f.is_pension);
+  const topFund = D.rankings.top_profit[0];
+  const worstFund = D.rankings.top_loss[0];
+  
+  // 速览统计
+  const qdiiPct = (D.type_distribution.qdii?.pct||0).toFixed(1);
+  const upCount = normalFunds.filter(f=>f.profit==="up").length;
+  const downCount = normalFunds.filter(f=>f.profit==="down").length;
+  
+  let html = "";
+  
+  // 英雄总资产卡
+  html += `
+  <div class="hero">
+    <div class="hero-label">总资产（两账户合计）</div>
+    <div class="hero-amount">¥${s.total_value.toLocaleString("zh-CN",{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+    <div class="hero-sub">普通账户 ¥${s.normal_value.toLocaleString("zh-CN",{minimumFractionDigits:0,maximumFractionDigits:0})} &nbsp;+&nbsp; 养老金 ¥${s.pension_value.toLocaleString("zh-CN",{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+    <div class="hero-today">
+      <div class="hero-stat">
+        <div class="val ${s.today_pnl>=0?'up':'down'}">${fmtMoney(s.today_pnl)}</div>
+        <div class="lbl">今日盈亏</div>
+      </div>
+      <div class="hero-stat">
+        <div class="val ${s.total_hold_pnl>=0?'up':'down'}">${fmtMoney(s.total_hold_pnl)}</div>
+        <div class="lbl">持有收益</div>
+      </div>
+      <div class="hero-stat">
+        <div class="val ${s.total_hold_pnl_pct>=0?'up':'down'}">${fmtPct(s.total_hold_pnl_pct)}</div>
+        <div class="lbl">累计收益率</div>
+      </div>
+    </div>
+  </div>`;
+  
+  // 速览行
+  html += `
+  <div class="quick-row">
+    <div class="q-card">
+      <div class="q-val ${topFund?.pct>=0?'up':'down'}">${fmtPct(topFund?.pct||0)}</div>
+      <div class="q-lbl">最强基金收益</div>
+      <div class="q-sub" style="color:var(--dim);font-size:11px">${topFund?.name||"--"}</div>
+    </div>
+    <div class="q-card">
+      <div class="q-val ${worstFund?.pct>=0?'up':'down'}">${fmtPct(worstFund?.pct||0)}</div>
+      <div class="q-lbl">最大亏损仓位</div>
+      <div class="q-sub" style="color:var(--dim);font-size:11px">${worstFund?.name||"--"}</div>
+    </div>
+  </div>
+  <div class="quick-row mt8">
+    <div class="q-card">
+      <div class="q-val gold">${s.fund_count}支</div>
+      <div class="q-lbl">持仓基金总数</div>
+      <div class="q-sub" style="font-size:11px">盈利${upCount} / 亏损${downCount}</div>
+    </div>
+    <div class="q-card">
+      <div class="q-val" style="color:#a855f7">${qdiiPct}%</div>
+      <div class="q-lbl">QDII海外仓位</div>
+      <div class="q-sub ${parseFloat(qdiiPct)>40?'down':''}">${parseFloat(qdiiPct)>40?'⚠ 汇率风险偏高':'✓ 仓位合理'}</div>
+    </div>
+  </div>`;
+  
+  // CRO风险预警
+  html += `<div class="sec-hd">🛡 CRO 实时风险预警</div><div class="warn-list">`;
+  normalFunds.forEach(f=>{
+    if(f.hold_pnl_pct < -15){
+      html += `<div class="warn-item red">
+        <div class="warn-icon">🔴</div>
+        <div class="warn-text">
+          <div class="wt">${f.name} — 亏损 ${fmtPct(f.hold_pnl_pct)}</div>
+          <div class="wd">深度亏损，持仓¥${f.market_value.toLocaleString("zh-CN",{maximumFractionDigits:0})}，建议评估止损</div>
+        </div>
+      </div>`;
+    } else if(f.hold_pnl_pct < -5){
+      html += `<div class="warn-item yellow">
+        <div class="warn-icon">🟡</div>
+        <div class="warn-text">
+          <div class="wt">${f.name} — 亏损 ${fmtPct(f.hold_pnl_pct)}</div>
+          <div class="wd">持仓¥${f.market_value.toLocaleString("zh-CN",{maximumFractionDigits:0})}，持续关注</div>
+        </div>
+      </div>`;
+    }
+  });
+  // QDII仓位预警
+  if(parseFloat(qdiiPct)>35){
+    html += `<div class="warn-item yellow">
+      <div class="warn-icon">🟡</div>
+      <div class="warn-text">
+        <div class="wt">QDII仓位占比 ${qdiiPct}%</div>
+        <div class="wd">贸易摩擦背景下汇率风险偏高，建议控制在35%以内</div>
+      </div>
+    </div>`;
+  }
+  // 分散度预警
+  if(s.fund_count>15){
+    html += `<div class="warn-item yellow">
+      <div class="warn-icon">🟡</div>
+      <div class="warn-text">
+        <div class="wt">分散度过高 — ${s.fund_count}支基金</div>
+        <div class="wd">部分仓位不足1%，建议精简至15支以内</div>
+      </div>
+    </div>`;
+  }
+  // 盈利亮点
+  normalFunds.filter(f=>f.hold_pnl_pct>10).slice(0,2).forEach(f=>{
+    html += `<div class="warn-item green">
+      <div class="warn-icon">🟢</div>
+      <div class="warn-text">
+        <div class="wt">${f.name} — ${fmtPct(f.hold_pnl_pct)}</div>
+        <div class="wd">核心Alpha收益，建议继续持有</div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  
+  // CIO调仓建议（动态生成）
+  html += `<div class="sec-hd">📋 CIO 调仓建议</div><div class="advice-list">`;
+  // 合并重复
+  if(normalFunds.find(f=>f.code==="012920") && normalFunds.find(f=>f.code==="012922")){
+    html += `<div class="adv-item">
+      <div class="adv-op op-merge">合并</div>
+      <div class="adv-text"><div class="at">012920(A) → 012922(C)</div><div class="ad">同基金A/C份额重复持仓，合并至C降低费率</div></div>
+    </div>`;
+  }
+  // 清仓建议（亏损>15%）
+  normalFunds.filter(f=>f.hold_pnl_pct<-15).forEach(f=>{
+    html += `<div class="adv-item">
+      <div class="adv-op op-sell">清仓</div>
+      <div class="adv-text"><div class="at">${f.code} ${f.name}</div><div class="ad">${fmtPct(f.hold_pnl_pct)}亏损，建议评估止损释放资金</div></div>
+    </div>`;
+  });
+  // 小仓位建议
+  normalFunds.filter(f=>f.market_value/s.total_value<0.01).forEach(f=>{
+    html += `<div class="adv-item">
+      <div class="adv-op op-sell">清仓</div>
+      <div class="adv-text"><div class="at">${f.code}</div><div class="ad">仓位不足1%，分散无意义，清仓整合</div></div>
+    </div>`;
+  });
+  // 持有建议（核心盈利）
+  normalFunds.filter(f=>f.hold_pnl_pct>15 && f.market_value/s.total_value>0.05).slice(0,2).forEach(f=>{
+    html += `<div class="adv-item">
+      <div class="adv-op op-hold">持有</div>
+      <div class="adv-text"><div class="at">${f.code} ${f.name}</div><div class="ad">${fmtPct(f.hold_pnl_pct)}核心仓位，继续持有</div></div>
+    </div>`;
+  });
+  html += `</div><div style="height:24px"></div>`;
+  
+  document.getElementById("tab-home").innerHTML = html;
+}
+
+// ══════════════════════════════════════
+// Tab: 持仓
+// ══════════════════════════════════════
+let currentFilter = "all";
+
+function renderPortfolio(){
+  const s = D.summary;
+  const normalFunds = D.funds.filter(f=>!f.is_pension);
+  const pensionFunds = D.funds.filter(f=>f.is_pension);
+  const upCount = normalFunds.filter(f=>f.profit==="up").length;
+  const downCount = normalFunds.filter(f=>f.profit==="down").length;
+  
+  let html = `<div style="height:12px"></div>`;
+  html += `<div class="filter-row">
+    <button class="filter-btn ${currentFilter==='all'?'active':''}" onclick="filterFunds('all',this)">全部(${normalFunds.length})</button>
+    <button class="filter-btn ${currentFilter==='qdii'?'active':''}" onclick="filterFunds('qdii',this)">QDII(${normalFunds.filter(f=>f.tag==='qdii').length})</button>
+    <button class="filter-btn ${currentFilter==='up'?'active':''}" onclick="filterFunds('up',this)">盈利(${upCount})</button>
+    <button class="filter-btn ${currentFilter==='down'?'active':''}" onclick="filterFunds('down',this)">亏损(${downCount})</button>
+    <button class="filter-btn ${currentFilter==='pension'?'active':''}" onclick="filterFunds('pension',this)">养老金(${pensionFunds.length})</button>
+  </div>`;
+  
+  // 普通账户
+  if(currentFilter !== "pension"){
+    html += `<div class="sec-hd" id="sec-normal">💼 普通账户 · ¥${s.normal_value.toLocaleString("zh-CN",{minimumFractionDigits:0,maximumFractionDigits:0})}</div>`;
+    html += `<div class="fund-list" id="fund-normal">`;
+    const filtered = filterList(normalFunds, currentFilter);
+    filtered.forEach(f=>{
+      html += renderFundCard(f);
+    });
+    html += `</div>`;
+  }
+  
+  // 养老金账户
+  const pVal = D.summary.pension_value;
+  const pPnl = pensionFunds.reduce((a,f)=>a+f.hold_pnl,0);
+  const pToday = pensionFunds.reduce((a,f)=>a+f.today_pnl,0);
+  
+  html += `<div class="sec-hd ${currentFilter!=='pension'?'mt8':''}" style="margin-top:24px">🏦 养老金账户 · ¥${pVal.toLocaleString("zh-CN",{minimumFractionDigits:0,maximumFractionDigits:0})}</div>`;
+  html += `<div style="padding:0 16px" id="fund-pension" ${currentFilter==='pension'?'':'style="display:none"'}>`;
+  html += `<div class="pension-card">
+    <div class="pension-title">🏦 个人养老金账户 <span style="margin-left:auto;font-size:10px;color:${pPnl>=0?'var(--down)':'var(--up)'}">${fmtMoney(pPnl)} (${fmtPct(pPnl/pVal*100||0)})</span></div>
+    <div class="pension-nums">
+      <div class="pension-num"><div class="pn-val gold">¥${pVal.toLocaleString("zh-CN",{maximumFractionDigits:0})}</div><div class="pn-lbl">总资产</div></div>
+      <div class="pension-num"><div class="pn-val ${pToday>=0?'up':'down'}">${fmtMoney(pToday)}</div><div class="pn-lbl">今日盈亏</div></div>
+      <div class="pension-num"><div class="pn-val ${pPnl>=0?'up':'down'}">${fmtMoney(pPnl)}</div><div class="pn-lbl">持有收益</div></div>
+    </div>
+    <div class="pension-funds">`;
+  pensionFunds.forEach(f=>{
+    const shortName = f.name.replace(/\(.*?\)/g,"").replace(/发起式/g,"");
+    html += `<div class="pf-row">
+      <div class="pf-name">${shortName} (${f.code})</div>
+      <div class="pf-right">
+        <div class="pf-amt">¥${f.market_value.toLocaleString("zh-CN",{maximumFractionDigits:0})}</div>
+        <div class="pf-chg ${f.today_pct>=0?'up':'down'}">${fmtPct(f.today_pct)}</div>
+      </div>
+    </div>`;
+  });
+  html += `</div></div></div><div style="height:24px"></div>`;
+  
+  document.getElementById("tab-portfolio").innerHTML = html;
+}
+
+function renderFundCard(f){
+  const badgeClass = "badge-"+f.tag;
+  const badgeLabel = TYPE_LABELS[f.tag]||f.type;
+  let warnHtml = "";
+  f.warnings.forEach(w=>{
+    const isDanger = w.includes("CRO");
+    warnHtml += `<div class="f-warn" ${isDanger?'style="color:var(--up);background:rgba(244,63,94,.08);border-color:rgba(244,63,94,.2)"':''}>${isDanger?"🔴":"⚠"} ${w}</div>`;
+  });
+  
+  return `<div class="f-card" data-type="${f.tag}" data-profit="${f.profit}">
+    <div class="f-top">
+      <div class="f-info">
+        <div class="f-name">${f.name}</div>
+        <div class="f-code">${f.code} · ${f.type}</div>
+      </div>
+      <span class="f-badge ${badgeClass}">${badgeLabel}</span>
+    </div>
+    <div class="f-nums">
+      <div class="f-num"><div class="n-val gold">¥${f.market_value.toLocaleString("zh-CN",{maximumFractionDigits:0})}</div><div class="n-lbl">市值</div></div>
+      <div class="f-num"><div class="n-val ${f.today_pnl>=0?'up':'down'}">${fmtMoney(f.today_pnl)}</div><div class="n-lbl">今日</div></div>
+      <div class="f-num"><div class="n-val ${f.hold_pnl>=0?'up':'down'}">${fmtPct(f.hold_pnl_pct)}</div><div class="n-lbl">持有收益</div></div>
+    </div>
+    ${warnHtml}
+  </div>`;
+}
+
+function filterList(funds, type){
+  if(type==="all") return funds;
+  if(type==="qdii") return funds.filter(f=>f.tag==="qdii");
+  if(type==="up") return funds.filter(f=>f.profit==="up");
+  if(type==="down") return funds.filter(f=>f.profit==="down");
+  return funds;
+}
+
+function filterFunds(type, btn){
+  currentFilter = type;
+  renderPortfolio();
+}
+
+// ══════════════════════════════════════
+// Tab: 分析
+// ══════════════════════════════════════
+function renderAnalysis(){
+  const td = D.type_distribution;
+  let html = `<div style="height:12px"></div>`;
+  
+  // 仓位类型分布
+  html += `<div class="sec-hd">📊 仓位类型分布</div><div class="chart-wrap">`;
+  for(const [tag, info] of Object.entries(td)){
+    const c = TYPE_COLORS[tag] || {bar:["#666","#999"]};
+    html += `<div class="chart-row">
+      <div class="chart-label">${TYPE_LABELS[tag]||tag}</div>
+      <div class="chart-bar-bg"><div class="chart-bar" style="width:${Math.max(info.pct,3)}%;background:linear-gradient(to right,${c.bar[0]},${c.bar[1]})">${info.pct}%</div></div>
+      <div class="chart-pct">¥${(info.value/10000).toFixed(1)}万</div>
+    </div>`;
+  }
+  html += `</div>`;
+  
+  // 收益排行
+  html += `<div class="sec-hd" style="margin-top:8px">🏆 收益排行榜 Top 5（普通账户）</div><div class="fund-list">`;
+  D.rankings.top_profit.forEach((f,i)=>{
+    html += `<div class="rank-card">
+      <div class="rank-top">
+        <div class="rank-info">
+          <div class="rank-name">${MEDALS[i]||""} ${f.name}</div>
+          <div class="rank-code">${f.code}</div>
+        </div>
+        <div class="rank-right">
+          <div class="rank-pct up">${fmtPct(f.pct)}</div>
+          <div class="rank-pnl">${fmtMoney(f.pnl)}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  
+  // 亏损排行
+  html += `<div class="sec-hd" style="margin-top:8px">💸 亏损排行榜（需关注）</div><div class="fund-list">`;
+  D.rankings.top_loss.forEach((f,i)=>{
+    html += `<div class="rank-card">
+      <div class="rank-top">
+        <div class="rank-info">
+          <div class="rank-name">⚠️ ${f.name}</div>
+          <div class="rank-code">${f.code}</div>
+        </div>
+        <div class="rank-right">
+          <div class="rank-pct down">${fmtPct(f.pct)}</div>
+          <div class="rank-pnl">${fmtMoney(f.pnl)}</div>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div><div style="height:24px"></div>`;
+  
+  document.getElementById("tab-analysis").innerHTML = html;
+}
+
+// ══════════════════════════════════════
+// 工具函数
+// ══════════════════════════════════════
 function updateClock(){
   const n=new Date();
   const h=String(n.getHours()).padStart(2,'0');
@@ -1024,7 +854,6 @@ function updateClock(){
 }
 updateClock();setInterval(updateClock,1000);
 
-// ── Tab切换 ──
 function switchTab(name,el){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active'));
@@ -1033,31 +862,10 @@ function switchTab(name,el){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-// ── 持仓筛选 ──
-function filterFunds(type,btn){
-  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-
-  const cards=document.querySelectorAll('#fund-normal .f-card');
-  const pension=document.getElementById('fund-pension');
-  const secNormal=document.getElementById('sec-normal');
-
-  if(type==='pension'){
-    cards.forEach(c=>c.style.display='none');
-    secNormal.style.display='none';
-    pension.style.display='block';
-    return;
-  }
-  secNormal.style.display='flex';
-  pension.style.display='none';
-
-  cards.forEach(c=>{
-    if(type==='all'){c.style.display='flex';return;}
-    if(type==='qdii'){c.style.display=c.dataset.type==='qdii'?'flex':'none';return;}
-    if(type==='up'){c.style.display=c.dataset.profit==='up'?'flex':'none';return;}
-    if(type==='down'){c.style.display=c.dataset.profit==='down'?'flex':'none';return;}
-  });
-}
+// ══════════════════════════════════════
+// 启动
+// ══════════════════════════════════════
+loadData();
 </script>
 </body>
 </html>
