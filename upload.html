@@ -295,9 +295,136 @@ body{
   white-space:nowrap;
 }
 .toast.show{opacity:1;}
+
+/* ── 密码锁 ── */
+.auth-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;
+  background:var(--dark);display:flex;align-items:center;justify-content:center;
+  transition:opacity .5s,transform .5s;
+}
+.auth-overlay.hide{opacity:0;transform:scale(1.05);pointer-events:none;}
+.auth-glow{
+  position:absolute;top:-30%;left:-20%;width:60vw;height:60vw;border-radius:50%;
+  background:radial-gradient(circle,rgba(201,168,76,.06),transparent 70%);
+  animation:authGlow 8s ease-in-out infinite;pointer-events:none;
+}
+.auth-glow:nth-child(2){top:auto;bottom:-30%;left:auto;right:-20%;animation-delay:-4s;background:radial-gradient(circle,rgba(59,130,246,.04),transparent 70%);}
+@keyframes authGlow{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(10px,-15px) scale(1.05);}}
+.auth-box{width:100%;max-width:340px;padding:32px 24px;text-align:center;position:relative;z-index:1;animation:authFadeUp .5s ease-out;}
+@keyframes authFadeUp{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+.auth-logo{
+  width:68px;height:68px;border-radius:17px;margin:0 auto 20px;
+  background:linear-gradient(135deg,var(--gold),var(--gold-l));
+  display:flex;align-items:center;justify-content:center;
+  font-size:34px;box-shadow:0 0 28px rgba(201,168,76,.35);
+  animation:logoPulse 2.5s ease-in-out infinite;
+}
+.auth-title{
+  font-size:20px;font-weight:700;letter-spacing:2px;
+  background:linear-gradient(to right,var(--gold),var(--gold-l));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  margin-bottom:6px;
+}
+.auth-sub{font-size:12px;color:var(--dim);letter-spacing:1px;margin-bottom:28px;}
+.pin-row{display:flex;gap:11px;justify-content:center;margin-bottom:28px;}
+.pin-cell{
+  width:46px;height:54px;border-radius:14px;
+  border:2px solid rgba(201,168,76,.25);background:rgba(201,168,76,.05);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .3s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;
+}
+.pin-cell::after{
+  content:'';position:absolute;bottom:0;left:50%;width:0;height:2px;
+  background:linear-gradient(90deg,var(--gold),var(--gold-l));
+  transition:all .3s ease;transform:translateX(-50%);
+}
+.pin-cell.active{border-color:var(--gold);background:rgba(201,168,76,.12);box-shadow:0 0 14px rgba(201,168,76,.2);}
+.pin-cell.active::after{width:100%;}
+.pin-cell.filled{border-color:var(--gold);background:rgba(201,168,76,.15);}
+.pin-cell.filled .pin-dot-fill{
+  width:13px;height:13px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),var(--gold-l));
+  box-shadow:0 0 8px rgba(201,168,76,.5);animation:pinPop .2s ease-out;
+}
+@keyframes pinPop{0%{transform:scale(0);}80%{transform:scale(1.2);}100%{transform:scale(1);}}
+.pin-cell.error{border-color:var(--up);background:rgba(244,63,94,.1);animation:pinShake .5s ease-in-out;}
+.pin-cell.error .pin-dot-fill{background:var(--up);box-shadow:0 0 8px rgba(244,63,94,.5);}
+@keyframes pinShake{0%,100%{transform:translateX(0);}20%{transform:translateX(-7px);}40%{transform:translateX(7px);}60%{transform:translateX(-5px);}80%{transform:translateX(5px);}}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:260px;margin:0 auto;}
+.pin-key{
+  width:72px;height:56px;border-radius:14px;
+  border:1px solid rgba(201,168,76,.15);background:rgba(201,168,76,.06);
+  color:var(--text);font-size:22px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .15s;margin:0 auto;
+  -webkit-user-select:none;user-select:none;
+}
+.pin-key:active{transform:scale(.92);background:rgba(201,168,76,.2);border-color:rgba(201,168,76,.4);}
+.pin-key.fn{background:transparent;border:none;color:var(--dim);font-size:13px;letter-spacing:1px;}
+.pin-key.fn:active{color:var(--text);}
+.auth-hint{margin-top:24px;font-size:11px;color:#475569;letter-spacing:.5px;}
+.auth-hint .err-text{color:var(--up);font-weight:600;}
+.auth-ok-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(10,14,26,.92);display:none;align-items:center;justify-content:center;
+  flex-direction:column;z-index:100000;
+}
+.auth-ok-overlay.show{display:flex;}
+.auth-ok-check{
+  width:76px;height:76px;border-radius:50%;
+  background:linear-gradient(135deg,rgba(34,197,94,.2),rgba(34,197,94,.05));
+  border:2px solid #22c55e;display:flex;align-items:center;justify-content:center;
+  animation:authOkPop .5s cubic-bezier(.4,0,.2,1);
+}
+.auth-ok-check svg{width:34px;height:34px;color:#22c55e;}
+@keyframes authOkPop{0%{transform:scale(0);opacity:0;}60%{transform:scale(1.1);}100%{transform:scale(1);opacity:1;}}
+.auth-ok-text{margin-top:18px;font-size:15px;font-weight:600;color:#22c55e;letter-spacing:2px;animation:authFadeUp .4s ease-out .2s both;}
+.auth-ok-sub{margin-top:6px;font-size:12px;color:var(--dim);animation:authFadeUp .4s ease-out .35s both;}
 </style>
 </head>
 <body>
+
+<!-- ══════════════════════ 密码锁 ══════════════════════ -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-glow"></div>
+  <div class="auth-glow"></div>
+  <div class="auth-box">
+    <div class="auth-logo">📸</div>
+    <div class="auth-title">巅峰资本</div>
+    <div class="auth-sub">请输入访问密码</div>
+    <div class="pin-row" id="pinRow">
+      <div class="pin-cell active" id="pc0"></div>
+      <div class="pin-cell" id="pc1"></div>
+      <div class="pin-cell" id="pc2"></div>
+      <div class="pin-cell" id="pc3"></div>
+    </div>
+    <div class="pin-pad">
+      <div class="pin-key" data-n="1">1</div>
+      <div class="pin-key" data-n="2">2</div>
+      <div class="pin-key" data-n="3">3</div>
+      <div class="pin-key" data-n="4">4</div>
+      <div class="pin-key" data-n="5">5</div>
+      <div class="pin-key" data-n="6">6</div>
+      <div class="pin-key" data-n="7">7</div>
+      <div class="pin-key" data-n="8">8</div>
+      <div class="pin-key" data-n="9">9</div>
+      <div class="pin-key fn" data-n="cancel">取消</div>
+      <div class="pin-key" data-n="0">0</div>
+      <div class="pin-key fn" data-n="del">⌫</div>
+    </div>
+    <div class="auth-hint" id="authHint">Apex Capital Management · 安全访问</div>
+  </div>
+</div>
+<div class="auth-ok-overlay" id="authOk">
+  <div class="auth-ok-check">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  </div>
+  <div class="auth-ok-text">验证通过</div>
+  <div class="auth-ok-sub">正在进入上传页面…</div>
+</div>
+
+<!-- 主内容（默认隐藏，验证通过后显示） -->
+<div id="mainContent" style="display:none">
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -424,6 +551,103 @@ body{
   <button class="success-btn" onclick="closeSuccess()">返回持仓监控</button>
 </div>
 
+</div><!-- end #mainContent -->
+
+<script>
+// ══════════════════════════════════════
+// 密码锁（与 mobile.html 共享 localStorage）
+// ══════════════════════════════════════
+const AUTH_KEY = 'apex_auth_token';
+const AUTH_TTL = 7 * 24 * 60 * 60 * 1000;
+const AUTH_PIN = '1688';
+let authPin = '';
+let authAttempts = 0;
+const AUTH_MAX = 5;
+let authLocked = false;
+
+function checkAuth() {
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (raw) {
+      const { t, exp } = JSON.parse(raw);
+      if (t === AUTH_PIN && Date.now() < exp) return true;
+      localStorage.removeItem(AUTH_KEY);
+    }
+  } catch(e) {}
+  return false;
+}
+function setAuth() {
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ t: AUTH_PIN, exp: Date.now() + AUTH_TTL }));
+}
+function authUpdateDots() {
+  for (let i = 0; i < 4; i++) {
+    const cell = document.getElementById('pc' + i);
+    cell.className = 'pin-cell'; cell.innerHTML = '';
+    if (i < authPin.length) { cell.classList.add('filled'); cell.innerHTML = '<div class="pin-dot-fill"></div>'; }
+    if (i === authPin.length) cell.classList.add('active');
+  }
+}
+function authInput(n) {
+  if (authLocked || authPin.length >= 4) return;
+  authPin += n; authUpdateDots();
+  if (authPin.length === 4) setTimeout(authVerify, 250);
+}
+function authDelete() {
+  if (authLocked || !authPin.length) return;
+  authPin = authPin.slice(0, -1); authUpdateDots();
+}
+function authCancel() { if (!authLocked) { authPin = ''; authUpdateDots(); } }
+function authVerify() {
+  const hint = document.getElementById('authHint');
+  if (authPin === AUTH_PIN) {
+    setAuth();
+    document.getElementById('authOk').classList.add('show');
+    setTimeout(() => {
+      const o = document.getElementById('authOverlay'); o.classList.add('hide');
+      setTimeout(() => { o.style.display = 'none'; }, 500);
+      document.getElementById('authOk').classList.remove('show');
+      document.getElementById('mainContent').style.display = '';
+    }, 1000);
+  } else {
+    authAttempts++;
+    for (let i = 0; i < 4; i++) document.getElementById('pc' + i).classList.add('error');
+    hint.innerHTML = '密码错误 <span class="err-text">(' + authAttempts + '/' + AUTH_MAX + ')</span>';
+    setTimeout(() => {
+      if (authAttempts >= AUTH_MAX) {
+        authLocked = true; let cd = 30;
+        hint.innerHTML = '已锁定 <span class="err-text">' + cd + '秒后重试</span>';
+        const timer = setInterval(() => {
+          cd--; hint.innerHTML = '已锁定 <span class="err-text">' + cd + '秒后重试</span>';
+          if (cd <= 0) { clearInterval(timer); authLocked = false; authAttempts = 0; hint.textContent = '请重新输入密码'; }
+        }, 1000);
+      }
+      authPin = ''; authUpdateDots();
+    }, 500);
+  }
+}
+document.querySelectorAll('.pin-key').forEach(k => {
+  k.addEventListener('click', () => {
+    const v = k.dataset.n;
+    if (v === 'del') authDelete(); else if (v === 'cancel') authCancel(); else authInput(v);
+  });
+});
+document.addEventListener('keydown', e => {
+  const o = document.getElementById('authOverlay');
+  if (!o || o.style.display === 'none' || o.classList.contains('hide')) return;
+  if (e.key >= '0' && e.key <= '9') authInput(e.key);
+  else if (e.key === 'Backspace') authDelete();
+  else if (e.key === 'Escape') authCancel();
+});
+
+// 启动：检查验证状态
+if (checkAuth()) {
+  document.getElementById('authOverlay').style.display = 'none';
+  document.getElementById('mainContent').style.display = '';
+} else {
+  authUpdateDots();
+}
+
+</script>
 <script>
 const REPO = "rebornwl/apex-capital-dashboard";
 const ISSUE_LABEL = "holding-sync";
