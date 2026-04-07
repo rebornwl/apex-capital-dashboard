@@ -1,0 +1,151 @@
+name: 持仓截图同步处理
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  process-screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.issue.labels.*.name, 'holding-sync')
+
+    steps:
+      - name: 📥 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 🐍 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 📋 提取 Issue 信息
+        id: issue_info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            ISSUE_NUM="${{ github.event.issue.number }}"
+            ISSUE_TITLE="${{ github.event.issue.title }}"
+            ISSUE_BODY="${{ github.event.issue.body }}"
+          else
+            # 手动触发时查找最新的未处理 holding-sync Issue
+            LATEST=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/issues?labels=holding-sync&state=open&per_page=1" \
+              | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['number'] if d else '')")
+            if [ -z "$LATEST" ]; then
+              echo "没有待处理的 holding-sync Issue，跳过"
+              echo "has_issue=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            ISSUE_NUM="$LATEST"
+            ISSUE_DATA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/$LATEST")
+            ISSUE_TITLE=$(echo "$ISSUE_DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
+            ISSUE_BODY=$(echo "$ISSUE_DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['body'] or '')")
+          fi
+
+          echo "issue_num=$ISSUE_NUM" >> $GITHUB_OUTPUT
+          echo "issue_title=$ISSUE_TITLE" >> $GITHUB_OUTPUT
+          echo "ISSUE_NUM=$ISSUE_NUM" >> $GITHUB_ENV
+          echo "ISSUE_TITLE=$ISSUE_TITLE" >> $GITHUB_ENV
+
+          # 保存 Issue body 供后续步骤使用
+          echo "$ISSUE_BODY" > /tmp/issue_body.txt
+
+          echo "📋 Issue #$ISSUE_NUM: $ISSUE_TITLE"
+
+      - name: ⏭️ 跳过（无待处理 Issue）
+        if: steps.issue_info.outputs.issue_num == ''
+        run: echo "没有待处理的 Issue，退出"
+
+      - name: 🔍 下载 Issue 中的图片
+        if: steps.issue_info.outputs.issue_num != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/screenshots
+
+          # 从 Issue body 中提取 base64 图片
+          python3 << 'PYEOF'
+          import re, os, base64
+
+          with open("/tmp/issue_body.txt", "r", encoding="utf-8", errors="ignore") as f:
+              body = f.read()
+
+          # 查找 base64 图片 (data:image/xxx;base64,...)
+          pattern = r'data:image/(\w+);base64,([A-Za-z0-9+/=]+)'
+          matches = re.findall(pattern, body)
+
+          if matches:
+              print(f"📸 找到 {len(matches)} 张 base64 图片")
+              for i, (fmt, b64data) in enumerate(matches):
+                  ext = "jpg" if fmt == "jpeg" else fmt
+                  filepath = f"/tmp/screenshots/screenshot_{i+1}.{ext}"
+                  try:
+                      with open(filepath, "wb") as imgf:
+                          imgf.write(base64.b64decode(b64data))
+                      size = os.path.getsize(filepath)
+                      print(f"  ✓ screenshot_{i+1}.{ext} ({size:,} bytes)")
+                  except Exception as e:
+                      print(f"  ✗ screenshot_{i+1}.{ext} 保存失败: {e}")
+          else:
+              print("⚠️ Issue body 中未找到 base64 图片")
+              print("（可能图片通过 GitHub 上传，需用 API 获取）")
+
+              # 尝试从 Issue comments 获取图片 URL
+              import urllib.request, json
+              issue_num = os.environ.get("ISSUE_NUM", "")
+              if issue_num:
+                  try:
+                      url = f"https://api.github.com/repos/${{ github.repository }}/issues/{issue_num}/comments"
+                      # 此处通过 subprocess 调用更方便携带 token
+                      pass
+                  except:
+                      pass
+          PYEOF
+
+          echo "下载完成"
+          ls -la /tmp/screenshots/ 2>/dev/null || echo "（无截图文件）"
+
+      - name: 📝 添加处理中评论
+        if: steps.issue_info.outputs.issue_num != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMENT_BODY="## 🔄 截图接收确认
+
+          已收到 **$(ls /tmp/screenshots/ 2>/dev/null | wc -l)** 张截图，正在排队等待 WorkBuddy CEO Agent 识别处理。
+
+          ### 下一步
+          1. WorkBuddy 自动化将在此 Issue 创建后触发
+          2. CEO Agent 使用 OCR 识别截图中的持仓数据
+          3. 更新 \`portfolio/holdings.md\` 并推送到仓库
+          4. GitHub Actions 自动生成最新 \`data.json\`
+
+          > ⏰ 预计处理时间：WorkBuddy 下次在线时自动执行
+          > 📎 Issue: #${{ steps.issue_info.outputs.issue_num }}"
+
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\": $(echo "$COMMENT_BODY" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments"
+
+      - name: 🏷️ 标记 Issue 为处理中
+        if: steps.issue_info.outputs.issue_num != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"labels":["holding-sync","processing"]}' \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/labels" 2>/dev/null || true
