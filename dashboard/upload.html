@@ -454,7 +454,7 @@ body{
     </div>
     <div class="step">
       <div class="step-num">3</div>
-      <div class="step-text">提交后通知 CEO Agent 进行 OCR 识别并更新持仓</div>
+      <div class="step-text">云端自动 OCR 识别并更新持仓数据，约 1-2 分钟</div>
     </div>
     <p style="margin-top:10px;font-size:11px;color:rgba(148,163,184,.6)">
       截图通过 GitHub Issue 安全传输，仅团队成员可见。支持批量上传最多6张。
@@ -545,8 +545,8 @@ body{
   <div class="success-icon">✅</div>
   <div class="success-title">提交成功</div>
   <div class="success-desc" id="successDesc">
-    持仓截图已上传，WorkBuddy CEO Agent 将在下次在线时识别并更新数据。<br/>
-    也可在对话中发送截图直接触发识别。
+    持仓截图已上传，云端正在自动处理。<br/>
+    约 1-2 分钟后刷新持仓监控页面即可看到最新数据。
   </div>
   <button class="success-btn" onclick="closeSuccess()">返回持仓监控</button>
 </div>
@@ -886,7 +886,7 @@ ${note ? `## 备注\n${note}` : ""}
 ${imagesMd}
 
 ---
-> 此 Issue 由持仓同步系统创建，WorkBuddy CEO Agent 将在下次在线时自动处理。`;
+> 此 Issue 由持仓同步系统创建，GitHub Actions 将自动进行 OCR 识别并更新数据。`;
 
     showProgress("正在提交到 GitHub...", 70, "请稍候...");
     
@@ -937,7 +937,7 @@ ${imagesMd}
     setTimeout(() => {
       hideProgress();
       document.getElementById("successDesc").innerHTML = 
-        `${selectedFiles.length} 张持仓截图已上传，CEO Agent 将在下次在线时识别并更新。<br/>也可在对话中发送截图直接触发。`;
+        `${selectedFiles.length} 张持仓截图已上传，云端正在自动处理。<br/>约 1-2 分钟后刷新即可看到最新数据。`;
       document.getElementById("successOverlay").classList.add("show");
     }, 500);
     
@@ -970,7 +970,7 @@ function fallbackManualUpload(title, note) {
     "_blank"
   );
   document.getElementById("successOverlay").querySelector(".success-desc").innerHTML = 
-    "已打开 GitHub Issue 页面，请手动上传截图后提交。<br/>提交后通知 CEO Agent 即可触发识别。";
+    "已打开 GitHub Issue 页面，请手动上传截图后提交。<br/>提交后云端会自动处理。";
   document.getElementById("successOverlay").classList.add("show");
 }
 

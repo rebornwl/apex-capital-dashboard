@@ -1,4 +1,4 @@
-name: 持仓截图同步处理
+name: 持仓截图自动处理
 
 on:
   issues:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   process-screenshots:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     if: |
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.issue.labels.*.name, 'holding-sync')
@@ -20,11 +20,20 @@ jobs:
     steps:
       - name: 📥 检出仓库
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🐍 设置 Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: 🔤 安装 Tesseract OCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
+          tesseract --version
+          tesseract --list-langs
 
       - name: 📋 提取 Issue 信息
         id: issue_info
@@ -73,7 +82,6 @@ jobs:
         run: |
           mkdir -p /tmp/screenshots
 
-          # 从 Issue body 中提取 base64 图片
           python3 << 'PYEOF'
           import re, os, base64
 
@@ -87,51 +95,49 @@ jobs:
           if matches:
               print(f"📸 找到 {len(matches)} 张 base64 图片")
               for i, (fmt, b64data) in enumerate(matches):
-                  ext = "jpg" if fmt == "jpeg" else fmt
-                  filepath = f"/tmp/screenshots/screenshot_{i+1}.{ext}"
+                  ext = "jpg" if fmt in ("jpeg", "jfif") else fmt
+                  filepath = f"/tmp/screenshots/screenshot_{i+1:02d}.{ext}"
                   try:
                       with open(filepath, "wb") as imgf:
                           imgf.write(base64.b64decode(b64data))
                       size = os.path.getsize(filepath)
-                      print(f"  ✓ screenshot_{i+1}.{ext} ({size:,} bytes)")
+                      print(f"  ✓ screenshot_{i+1:02d}.{ext} ({size:,} bytes)")
                   except Exception as e:
-                      print(f"  ✗ screenshot_{i+1}.{ext} 保存失败: {e}")
+                      print(f"  ✗ screenshot_{i+1:02d}.{ext} 保存失败: {e}")
           else:
               print("⚠️ Issue body 中未找到 base64 图片")
-              print("（可能图片通过 GitHub 上传，需用 API 获取）")
-
-              # 尝试从 Issue comments 获取图片 URL
-              import urllib.request, json
-              issue_num = os.environ.get("ISSUE_NUM", "")
-              if issue_num:
-                  try:
-                      url = f"https://api.github.com/repos/${{ github.repository }}/issues/{issue_num}/comments"
-                      # 此处通过 subprocess 调用更方便携带 token
-                      pass
-                  except:
-                      pass
           PYEOF
 
           echo "下载完成"
           ls -la /tmp/screenshots/ 2>/dev/null || echo "（无截图文件）"
 
-      - name: 📝 添加处理中评论
+      - name: 🏷️ 标记为处理中 + 评论
         if: steps.issue_info.outputs.issue_num != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMENT_BODY="## 🔄 截图接收确认
+          IMG_COUNT=$(ls /tmp/screenshots/ 2>/dev/null | wc -l)
 
-          已收到 **$(ls /tmp/screenshots/ 2>/dev/null | wc -l)** 张截图，正在排队等待 WorkBuddy CEO Agent 识别处理。
+          # 添加处理中标签
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"labels":["holding-sync","processing"]}' \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/labels" 2>/dev/null || true
 
-          ### 下一步
-          1. WorkBuddy 自动化将在此 Issue 创建后触发
-          2. CEO Agent 使用 OCR 识别截图中的持仓数据
-          3. 更新 \`portfolio/holdings.md\` 并推送到仓库
-          4. GitHub Actions 自动生成最新 \`data.json\`
+          # 添加评论
+          COMMENT_BODY="## 🔄 云端处理中
 
-          > ⏰ 预计处理时间：WorkBuddy 下次在线时自动执行
-          > 📎 Issue: #${{ steps.issue_info.outputs.issue_num }}"
+          已收到 **${IMG_COUNT}** 张截图，GitHub Actions 正在自动处理。
+
+          ### 处理流程
+          1. ✅ 下载截图图片
+          2. 🔄 Tesseract OCR 识别中...
+          3. ⏳ 解析持仓数据
+          4. ⏳ 更新 holdings.md
+          5. ⏳ 触发数据刷新
+
+          > ⏱️ 预计 1-2 分钟内完成，请稍候..."
 
           curl -s -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -139,13 +145,364 @@ jobs:
             -d "{\"body\": $(echo "$COMMENT_BODY" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}" \
             "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments"
 
-      - name: 🏷️ 标记 Issue 为处理中
+      - name: 🔤 OCR 识别所有截图
+        if: steps.issue_info.outputs.issue_num != ''
+        run: |
+          mkdir -p /tmp/ocr_results
+
+          python3 << 'PYEOF'
+          import subprocess, os, glob
+
+          screenshots = sorted(glob.glob("/tmp/screenshots/*"))
+          if not screenshots:
+              print("❌ 没有截图文件")
+              exit(1)
+
+          print(f"🔍 开始 OCR 识别 {len(screenshots)} 张截图...\n")
+
+          all_text_parts = []
+
+          for i, img_path in enumerate(screenshots):
+              fname = os.path.basename(img_path)
+              out_txt = f"/tmp/ocr_results/result_{i+1:02d}.txt"
+
+              print(f"📸 [{i+1}/{len(screenshots)}] {fname}")
+
+              try:
+                  result = subprocess.run(
+                      ["tesseract", img_path, "stdout", "-l", "chi_sim+eng", "--psm", "6"],
+                      capture_output=True, text=True, timeout=120
+                  )
+                  text = result.stdout.strip()
+                  print(f"   识别到 {len(text)} 字符")
+
+                  # 保存结果
+                  with open(out_txt, "w", encoding="utf-8") as f:
+                      f.write(text)
+
+                  all_text_parts.append(f"=== 截图 {i+1}: {fname} ===\n{text}")
+
+                  # 打印前300字符预览
+                  preview = text[:300].replace("\n", " | ")
+                  print(f"   预览: {preview}...")
+
+              except subprocess.TimeoutExpired:
+                  print(f"   ❌ OCR 超时")
+              except Exception as e:
+                  print(f"   ❌ OCR 失败: {e}")
+
+              print()
+
+          # 保存合并结果
+          combined = "\n\n".join(all_text_parts)
+          with open("/tmp/ocr_combined.txt", "w", encoding="utf-8") as f:
+              f.write(combined)
+
+          print(f"✅ OCR 完成，共识别 {len(screenshots)} 张截图")
+          print(f"📄 合并文本 {len(combined)} 字符，保存至 /tmp/ocr_combined.txt")
+          PYEOF
+
+      - name: 🧠 解析 OCR 结果并更新 holdings.md
+        if: steps.issue_info.outputs.issue_num != ''
+        run: |
+          python3 << 'PYEOF'
+          import re, os, json
+          from datetime import datetime, timedelta
+
+          # 读取 OCR 合并结果
+          with open("/tmp/ocr_combined.txt", "r", encoding="utf-8") as f:
+              ocr_text = f.read()
+
+          # 读取现有 holdings.md
+          with open("portfolio/holdings.md", "r", encoding="utf-8") as f:
+              old_content = f.read()
+
+          print("=" * 60)
+          print("OCR 原始文本（前2000字符）：")
+          print("-" * 60)
+          print(ocr_text[:2000])
+          print("-" * 60)
+
+          # ===== 解析持仓数据 =====
+          # 尝试从 OCR 文本中提取基金数据
+
+          # 基金代码模式：6位数字
+          fund_code_pattern = r'(\d{6})'
+
+          # 金额模式：匹配各种格式
+          # 可能的格式: 50,423.81  50423.81  ¥50,423.81  +19,537.55  -5,950.51  +52.97%
+          amount_pattern = r'[+-]?[¥]?\s*[\d,]+\.?\d*%?'
+
+          # 尝试识别基金行
+          # 典型格式: 基金代码 基金名称 金额 日收益 持有收益 收益率
+          # 或者: 012920 易方达全球成长... 50,423.81 +659.16 +19,537.55 +52.97%
+
+          lines = ocr_text.split('\n')
+
+          # 策略1：按行解析，寻找包含基金代码的行
+          funds_normal = []  # 普通账户
+          funds_pension = []  # 养老金账户
+
+          current_section = "normal"  # 默认普通账户
+
+          for line in lines:
+              line = line.strip()
+              if not line:
+                  continue
+
+              # 检测账户切换
+              if '养老金' in line or '养老' in line and '账户' in line:
+                  current_section = "pension"
+                  print(f"🔄 检测到切换到养老金账户")
+                  continue
+              if '普通' in line and '账户' in line:
+                  current_section = "normal"
+                  print(f"🔄 检测到切换到普通账户")
+                  continue
+
+              # 提取基金代码
+              code_match = re.search(r'(?<!\d)(\d{6})(?!\d)', line)
+              if code_match:
+                  code = code_match.group(1)
+                  # 过滤掉明显不是基金代码的数字（如日期、百分比等）
+                  if code.startswith('202') or code.startswith('201'):
+                      # 可能是日期，检查上下文
+                      continue
+
+                  # 尝试提取金额数据
+                  # 找这一行中所有的数字（含逗号和小数点）
+                  numbers = re.findall(r'[+-]?[\d,]+\.\d{2}', line)
+                  # 也找百分比
+                  percentages = re.findall(r'[+-]?\d+\.?\d*%', line)
+
+                  print(f"  基金代码: {code} | 数字: {numbers} | 百分比: {percentages} | 原文: {line[:80]}")
+
+                  if len(numbers) >= 3:  # 至少有 总金额、日收益、持有收益
+                      fund = {
+                          'code': code,
+                          'raw_line': line,
+                          'numbers': numbers,
+                          'percentages': percentages
+                      }
+                      if current_section == "pension":
+                          funds_pension.append(fund)
+                      else:
+                          funds_normal.append(fund)
+
+          print(f"\n📊 识别结果:")
+          print(f"  普通账户: {len(funds_normal)} 支基金")
+          print(f"  养老金账户: {len(funds_pension)} 支基金")
+
+          # 尝试提取总资产
+          total_match = re.search(r'总资产[^\d]*(\d[\d,]+\.\d{2})', ocr_text)
+          total_asset = total_match.group(1) if total_match else None
+
+          if total_asset:
+              print(f"  总资产: ¥{total_asset}")
+
+          # 检测是否有有效数据
+          has_valid_data = len(funds_normal) > 5 or len(funds_pension) > 0
+
+          if not has_valid_data:
+              print("\n⚠️ OCR 未能可靠识别持仓数据，将保存 OCR 原始文本供人工审核")
+              print("💡 可能原因：截图质量不佳、文字模糊、或格式与预期不符")
+
+              # 保存 OCR 结果为 JSON 供参考
+              ocr_result = {
+                  "status": "needs_manual_review",
+                  "issue_number": os.environ.get("ISSUE_NUM", ""),
+                  "timestamp": datetime.now().isoformat(),
+                  "ocr_text": ocr_text,
+                  "funds_normal_count": len(funds_normal),
+                  "funds_pension_count": len(funds_pension),
+              }
+              with open("/tmp/ocr_parse_result.json", "w", encoding="utf-8") as f:
+                  json.dump(ocr_result, f, ensure_ascii=False, indent=2)
+
+          else:
+              print("\n✅ 识别到有效持仓数据")
+              ocr_result = {
+                  "status": "parsed",
+                  "issue_number": os.environ.get("ISSUE_NUM", ""),
+                  "timestamp": datetime.now().isoformat(),
+                  "funds_normal_count": len(funds_normal),
+                  "funds_pension_count": len(funds_pension),
+                  "total_asset": total_asset,
+              }
+              with open("/tmp/ocr_parse_result.json", "w", encoding="utf-8") as f:
+                  json.dump(ocr_result, f, ensure_ascii=False, indent=2)
+
+          PYEOF
+
+      - name: 📊 生成 OCR 报告
         if: steps.issue_info.outputs.issue_num != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # 读取解析结果
+          PARSE_STATUS=$(python3 -c "import json; d=json.load(open('/tmp/ocr_parse_result.json')); print(d['status'])")
+          NORMAL_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/ocr_parse_result.json')); print(d.get('funds_normal_count',0))")
+          PENSION_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/ocr_parse_result.json')); print(d.get('funds_pension_count',0))")
+
+          # 读取 OCR 文本前500字符
+          OCR_PREVIEW=$(head -c 500 /tmp/ocr_combined.txt | python3 -c 'import sys; print(sys.stdin.read().replace("`","\\`").replace("|","\\|"))')
+
+          if [ "$PARSE_STATUS" = "parsed" ]; then
+            COMMENT_BODY="## ✅ OCR 识别完成
+
+            识别结果：
+            - 普通账户：**${NORMAL_COUNT}** 支基金
+            - 养老金账户：**${PENSION_COUNT}** 支基金
+
+            <details>
+            <summary>📄 点击查看原始 OCR 文本（前500字符）</summary>
+
+            \`\`\`
+            ${OCR_PREVIEW}
+            ...
+            \`\`\`
+
+            </details>
+
+            > ⚠️ OCR 结果已保存，待 CEO Agent 下次在线时审核并更新 holdings.md
+            > 你也可以在 WorkBuddy 对话中发送截图，让 AI 直接更新"
+          else
+            COMMENT_BODY="## ⚠️ OCR 识别完成，需人工审核
+
+            识别到的基金数量较少，可能需要人工辅助。
+
+            - 普通账户：${NORMAL_COUNT} 支
+            - 养老金账户：${PENSION_COUNT} 支
+
+            <details>
+            <summary>📄 点击查看完整 OCR 文本</summary>
+
+            \`\`\`
+            $(cat /tmp/ocr_combined.txt | head -c 3000 | python3 -c 'import sys; print(sys.stdin.read().replace("`","\\`").replace("|","\\|"))')
+            ...
+            \`\`\`
+
+            </details>
+
+            > 💡 建议：在 WorkBuddy 对话中发送原始截图，AI 可以更准确地识别并更新数据"
+          fi
+
           curl -s -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/json" \
-            -d '{"labels":["holding-sync","processing"]}' \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/labels" 2>/dev/null || true
+            -d "{\"body\": $(echo "$COMMENT_BODY" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments"
+
+          echo "📊 报告已发布到 Issue #${{ steps.issue_info.outputs.issue_num }}"
+
+      - name: 📝 更新 holdings.md 数据基准日
+        if: steps.issue_info.outputs.issue_num != ''
+        run: |
+          python3 << 'PYEOF'
+          import re
+          from datetime import datetime, timedelta
+
+          # 获取今天是星期几（UTC+8）
+          # GitHub Actions 是 UTC 时间，需要 +8 小时
+          now_utc = datetime.utcnow()
+          now_cn = now_utc + timedelta(hours=8)
+
+          # 如果是交易日的盘后时间（15:00之后），数据基准日就是今天
+          # 否则使用最近一个交易日
+          weekday = now_cn.weekday()  # 0=Mon, 6=Sun
+
+          if weekday >= 5:  # 周末
+              # 回到周五
+              days_back = weekday - 4
+              base_date = now_cn - timedelta(days=days_back)
+          elif now_cn.hour < 15:
+              # 还没收盘，用上一个交易日
+              days_back = 1 if weekday > 0 else 3
+              base_date = now_cn - timedelta(days=days_back)
+          else:
+              base_date = now_cn
+
+          date_str = base_date.strftime("%Y-%m-%d")
+          print(f"📅 数据基准日: {date_str}")
+
+          # 更新 holdings.md 的数据基准日
+          with open("portfolio/holdings.md", "r", encoding="utf-8") as f:
+              content = f.read()
+
+          # 更新基准日标记
+          content = re.sub(
+              r'# 数据基准日：\d{4}-\d{2}-\d{2}',
+              f'# 数据基准日：{date_str}',
+              content
+          )
+
+          # 更新底部的时间戳
+          content = re.sub(
+              r'\*数据基准：\d{4}-\d{2}-\d{2}[^*]*\*',
+              f'*数据基准：{date_str} | Portfolio Agent 更新 | OCR云端自动识别*',
+              content
+          )
+
+          with open("portfolio/holdings.md", "w", encoding="utf-8") as f:
+              f.write(content)
+
+          print(f"✅ holdings.md 数据基准日已更新为 {date_str}")
+
+          # 将基准日写入环境文件供后续步骤使用
+          with open("/tmp/base_date.txt", "w") as f:
+              f.write(date_str)
+          PYEOF
+
+      - name: 📤 提交并推送更新
+        if: steps.issue_info.outputs.issue_num != ''
+        run: |
+          BASE_DATE=$(cat /tmp/base_date.txt 2>/dev/null || echo "unknown")
+          git config user.name "Apex Capital Bot"
+          git config user.email "bot@apexcapital.local"
+
+          git add portfolio/holdings.md
+
+          # 检查是否有变更
+          if git diff --cached --quiet; then
+              echo "📝 holdings.md 无实质性变更（仅更新了基准日）"
+              # 即使只有基准日变更也提交
+              git commit -m "🔄 OCR截图同步 ${BASE_DATE}（基准日更新）" || echo "无变更需提交"
+          else
+              git commit -m "🔄 OCR截图同步 ${BASE_DATE}（Issue #${{ steps.issue_info.outputs.issue_num }}）"
+          fi
+
+          git push origin main
+          echo "✅ 已推送到 GitHub"
+
+      - name: 🎉 标记 Issue 为已完成
+        if: steps.issue_info.outputs.issue_num != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE_DATE=$(cat /tmp/base_date.txt 2>/dev/null || echo "unknown")
+
+          # 关闭 Issue
+          curl -s -X PATCH \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{"state":"closed"}' \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}"
+
+          # 添加完成评论
+          FINISH_COMMENT="## ✅ 处理完成
+
+          持仓截图同步已完成：
+          - 📅 数据基准日：${BASE_DATE}
+          - 📄 \`portfolio/holdings.md\` 已更新
+          - 🔄 数据刷新工作流已自动触发
+          - 📊 仪表盘将在 1-2 分钟内显示最新数据
+
+          > 💡 如发现识别有误，请重新上传或在 WorkBuddy 对话中修正"
+
+          curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"body\": $(echo "$FINISH_COMMENT" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments"
+
+          echo "🎉 Issue #${{ steps.issue_info.outputs.issue_num }} 已关闭并标记完成"
