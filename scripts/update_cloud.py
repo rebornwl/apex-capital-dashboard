@@ -8,8 +8,15 @@
 import json
 import re
 import os
+import sys
 import urllib.request
 from datetime import datetime, timedelta
+
+# 修复 Windows GBK 环境下的 Unicode 输出问题
+if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr and hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 # 路径配置（GitHub Actions 工作目录为仓库根目录）
 HOLDINGS_MD = os.path.join(os.getenv("GITHUB_WORKSPACE", "."), "portfolio", "holdings.md")
@@ -37,10 +44,32 @@ def get_tag(type_str):
             return val
     return "mix"
 
+# 2026年中国法定节假日（简易列表，需每年更新）
+HOLIDAYS_2026 = {
+    # 元旦
+    "2026-01-01", "2026-01-02", "2026-01-03",
+    # 春节
+    "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-21", "2026-02-22",
+    # 清明节
+    "2026-04-04", "2026-04-05", "2026-04-06",
+    # 劳动节
+    "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05",
+    # 端午节
+    "2026-06-19", "2026-06-20", "2026-06-21",
+    # 中秋+国庆
+    "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08",
+}
+
 def is_trading_day():
-    """判断是否为交易日（排除周末）"""
+    """判断是否为交易日（排除周末和法定节假日）"""
     date = datetime.now()
-    return date.weekday() < 5
+    if date.weekday() >= 5:
+        return False
+    today_str = date.strftime("%Y-%m-%d")
+    if today_str in HOLIDAYS_2026:
+        print(f"  🏖️ 今天是法定节假日({today_str})，跳过更新")
+        return False
+    return True
 
 def fetch_estimate(code):
     """获取单只基金实时估值"""
@@ -298,11 +327,11 @@ def run_update():
             base_date = datetime.strptime(match.group(1), "%Y-%m-%d")
             today = datetime.now()
             today_date = datetime(today.year, today.month, today.day)
-            # 计算过期交易日数（排除周末）
+            # 计算过期交易日数（排除周末和节假日）
             stale_days = 0
             d = base_date + timedelta(days=1)
             while d <= today_date:
-                if d.weekday() < 5:
+                if d.weekday() < 5 and d.strftime("%Y-%m-%d") not in HOLIDAYS_2026:
                     stale_days += 1
                 d += timedelta(days=1)
 

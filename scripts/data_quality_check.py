@@ -11,6 +11,20 @@ from datetime import datetime, timedelta
 
 HOLDINGS_MD = os.path.join(os.getenv("GITHUB_WORKSPACE", "."), "portfolio", "holdings.md")
 
+# 2026年中国法定节假日（简易列表，需每年更新）
+HOLIDAYS_2026 = {
+    "2026-01-01", "2026-01-02", "2026-01-03",
+    "2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-21", "2026-02-22",
+    "2026-04-04", "2026-04-05", "2026-04-06",
+    "2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05",
+    "2026-06-19", "2026-06-20", "2026-06-21",
+    "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08",
+}
+
+def is_holiday(date_str):
+    """检查是否为法定节假日"""
+    return date_str in HOLIDAYS_2026
+
 def count_trading_days_between(start_date, end_date):
     """
     计算两个日期之间的交易日天数（排除周末）。
@@ -20,7 +34,8 @@ def count_trading_days_between(start_date, end_date):
     current = start_date + timedelta(days=1)
     while current <= end_date:
         if current.weekday() < 5:  # 周一到周五
-            count += 1
+            if not is_holiday(current.strftime("%Y-%m-%d")):  # 排除法定节假日
+                count += 1
         current += timedelta(days=1)
     return count
 

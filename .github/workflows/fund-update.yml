@@ -84,12 +84,19 @@ jobs:
           else
             TRIGGER="${{ github.event_name }}"
             if [ "$TRIGGER" = "schedule" ]; then
-              CRON_MIN=$(date +%M)
-              if [ "$CRON_MIN" = "35" ]; then MSG="开盘更新"
-              elif [ "$CRON_MIN" = "30" ]; then MSG="午盘更新"
-              elif [ "$CRON_MIN" = "05" ]; then MSG="盘后更新"
-              elif [ "$CRON_MIN" = "00" ]; then MSG="晚间复盘"
-              else MSG="定时更新"
+              UTC_H=$(date -u +%H)
+              UTC_M=$(date -u +%M)
+              # 根据UTC时间段判断更新类型（cron可能有延迟，用小时范围匹配）
+              if [ "$UTC_H" = "01" ] || ([ "$UTC_H" = "02" ] && [ "$UTC_M" -lt "30" ]); then
+                MSG="开盘更新"
+              elif [ "$UTC_H" = "06" ] || ([ "$UTC_H" = "07" ] && [ "$UTC_M" -lt "30" ]); then
+                MSG="午盘更新"
+              elif [ "$UTC_H" = "07" ] || ([ "$UTC_H" = "08" ] && [ "$UTC_M" -lt "30" ]); then
+                MSG="盘后更新"
+              elif [ "$UTC_H" = "12" ] || ([ "$UTC_H" = "13" ] && [ "$UTC_M" -lt "30" ]); then
+                MSG="晚间复盘"
+              else
+                MSG="定时更新"
               fi
             elif [ "$TRIGGER" = "push" ]; then
               MSG="持仓数据更新"
