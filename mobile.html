@@ -73,6 +73,13 @@ body{
 }
 
 /* ── 顶部状态栏 ── */
+.stale-bar{
+  position:sticky;top:0;z-index:101;
+  background:#e67e22;
+  color:#fff;font-size:12px;font-weight:600;
+  text-align:center;padding:6px 12px;
+  line-height:1.4;
+}
 .topbar{
   position:sticky;top:0;z-index:100;
   background:rgba(10,14,26,.92);
@@ -483,6 +490,10 @@ body{
 </div>
 
 <!-- 顶部导航 -->
+<!-- 数据过期警告横幅 -->
+<div class="stale-bar" id="staleBar" style="display:none">
+  <span class="stale-msg"></span>
+</div>
 <div class="topbar" id="topbar" style="display:none">
   <div class="topbar-logo">
     <div class="logo-icon">📈</div>
@@ -732,6 +743,9 @@ function renderAll(){
   document.getElementById("dataDate").textContent = D.update_time_short+" "+D.trading_status;
   document.getElementById("liveDot").className = "live-dot" + (D.is_trading_day?"":" off");
   
+  // 数据过期预警横幅
+  renderStaleWarning();
+  
   renderHome();
   renderPortfolio();
   renderAnalysis();
@@ -740,6 +754,22 @@ function renderAll(){
   document.getElementById("setUpdateTime").textContent = D.update_time;
   document.getElementById("setTradingStatus").textContent = D.trading_status;
   document.getElementById("reportText").textContent = D.report_text;
+}
+
+// ── 数据过期预警 ──
+function renderStaleWarning(){
+  let bar = document.getElementById("staleBar");
+  if(!bar) return;
+  const s = D && D.data_stale;
+  if(!s || !s.level || s.level === "none"){
+    bar.style.display = "none";
+    return;
+  }
+  const colors = {yellow:"#b8860b",orange:"#e67e22",red:"#e74c3c"};
+  bar.style.display = "block";
+  bar.style.background = colors[s.level] || "#e67e22";
+  bar.querySelector(".stale-msg").textContent = s.msg || "数据可能过期";
+  bar.dataset.level = s.level;
 }
 
 // ══════════════════════════════════════

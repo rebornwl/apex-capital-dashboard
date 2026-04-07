@@ -9,7 +9,7 @@ import json
 import re
 import os
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # 路径配置（GitHub Actions 工作目录为仓库根目录）
 HOLDINGS_MD = os.path.join(os.getenv("GITHUB_WORKSPACE", "."), "portfolio", "holdings.md")
@@ -289,6 +289,42 @@ def run_update():
             report.append(f"   • {f['name']}({f['code']}) {f['hold_pnl_pct']:+.2f}% ¥{f['market_value']:,.0f}")
 
     output["report_text"] = "\n".join(report)
+
+    # ── 数据质量检测 ──
+    try:
+        # 内联数据新鲜度检测
+        match = re.search(r'数据基准日[：:]\s*(\d{4}-\d{2}-\d{2})', open(HOLDINGS_MD, 'r', encoding='utf-8').read())
+        if match:
+            base_date = datetime.strptime(match.group(1), "%Y-%m-%d")
+            today = datetime.now()
+            today_date = datetime(today.year, today.month, today.day)
+            # 计算过期交易日数（排除周末）
+            stale_days = 0
+            d = base_date + timedelta(days=1)
+            while d <= today_date:
+                if d.weekday() < 5:
+                    stale_days += 1
+                d += timedelta(days=1)
+
+            if stale_days <= 1:
+                output["data_stale"] = None
+            elif stale_days == 2:
+                output["data_stale"] = {"level": "yellow", "days": stale_days, "base_date": match.group(1),
+                    "msg": f"数据基准日为 {match.group(1)}（{stale_days}个交易日前），建议更新"}
+            elif stale_days == 3:
+                output["data_stale"] = {"level": "orange", "days": stale_days, "base_date": match.group(1),
+                    "msg": f"数据已过期{stale_days}个交易日（基准日：{match.group(1)}），请尽快更新"}
+            else:
+                output["data_stale"] = {"level": "red", "days": stale_days, "base_date": match.group(1),
+                    "msg": f"数据严重过期！已{stale_days}个交易日未更新（基准日：{match.group(1)}），当前数据不可靠"}
+            if output.get("data_stale"):
+                print(f"⚠️  数据过期预警：{output['data_stale']['msg']}")
+        else:
+            output["data_stale"] = {"level": "red", "days": 999, "base_date": "unknown",
+                "msg": "无法解析数据基准日，数据可能不可靠"}
+    except Exception as e:
+        print(f"⚠️  数据质量检测异常：{e}")
+        output["data_stale"] = None
 
     # 保存 data.json
     with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
