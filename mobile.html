@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="巅峰资本"/>
 <meta name="theme-color" content="#0a0e1a"/>
+<!-- 强制禁止浏览器缓存此 HTML 页面 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <title>巅峰资本 · 持仓监控</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230a0e1a'/><text y='.9em' font-size='80' x='10'>📈</text></svg>"/>
 <style>
@@ -315,6 +319,17 @@ body{
 .refresh-btn.spinning svg{animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
+/* ── Toast 通知 ── */
+.m-toast{
+  position:fixed;bottom:calc(var(--safe-bot) + 84px);left:50%;transform:translateX(-50%) translateY(12px);
+  z-index:9990;padding:9px 18px;border-radius:22px;
+  background:rgba(26,32,53,.96);color:var(--text);font-size:13px;font-weight:500;
+  backdrop-filter:blur(12px);border:1px solid rgba(201,168,76,.2);
+  opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;
+  box-shadow:0 4px 24px rgba(0,0,0,.4);
+}
+.m-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
 /* ── 通用工具类 ── */
 .mt8{margin-top:8px;}
 .pb-nav{padding-bottom:calc(var(--safe-bot) + 70px);}
@@ -449,6 +464,9 @@ body{
   <div class="auth-ok-text">验证通过</div>
   <div class="auth-ok-sub">正在进入控制台…</div>
 </div>
+
+<!-- Toast 通知 -->
+<div class="m-toast" id="mToast"></div>
 
 <!-- Loading -->
 <div class="loading-overlay" id="loading">
@@ -620,7 +638,10 @@ async function loadData(){
   const errorMsg = document.getElementById("errorMsg");
   
   try {
-    const resp = await fetch("data.json?t="+Date.now());
+    const resp = await fetch("data.json?t="+Date.now(), {
+      cache: 'no-store',
+      headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache, no-store' }
+    });
     if(!resp.ok) throw new Error("HTTP "+resp.status);
     D = await resp.json();
     
@@ -628,6 +649,9 @@ async function loadData(){
     setTimeout(()=>{loading.style.display="none";},400);
     document.getElementById("topbar").style.display="flex";
     document.getElementById("refreshBtn").style.display="flex";
+    
+    // 记录当前版本号，供自动轮询对比
+    _lastVersion = D.cache_buster || D.update_time || null;
     
     renderAll();
   } catch(e){
@@ -641,15 +665,62 @@ async function refreshData(){
   const btn = document.getElementById("refreshBtn");
   btn.classList.add("spinning");
   try {
-    const resp = await fetch("data.json?t="+Date.now());
+    const resp = await fetch("data.json?t="+Date.now(), {
+      cache: 'no-store',
+      headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache, no-store' }
+    });
     if(!resp.ok) throw new Error("HTTP "+resp.status);
-    D = await resp.json();
+    const newData = await resp.json();
+    const changed = !D || newData.update_time !== D.update_time;
+    D = newData;
     renderAll();
+    showToast(changed ? "✅ 数据已更新 · " + (D.update_time_short||"") : "✓ 已是最新数据");
   } catch(e){
-    // silently fail - maybe show a toast
+    showToast("⚠️ 刷新失败，请检查网络");
   }
   btn.classList.remove("spinning");
 }
+
+// ── Toast 通知 ──
+let _toastTimer = null;
+function showToast(msg, ms=2500){
+  const t = document.getElementById("mToast");
+  if(!t) return;
+  if(_toastTimer) clearTimeout(_toastTimer);
+  t.textContent = msg;
+  t.classList.add("show");
+  _toastTimer = setTimeout(()=>{ t.classList.remove("show"); }, ms);
+}
+
+// ── 自动版本检测（每30秒轮询 data_version.json）──
+let _lastVersion = null;
+async function checkNewVersion(){
+  // 仅在页面可见时检查
+  if(document.hidden) return;
+  try {
+    const resp = await fetch("data_version.json?t="+Date.now(), {
+      cache: 'no-store',
+      headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache, no-store' }
+    });
+    if(!resp.ok) return;
+    const ver = await resp.json();
+    if(_lastVersion && ver.v !== _lastVersion){
+      // 有新版本，自动加载并提示
+      const r2 = await fetch("data.json?t="+Date.now(), {
+        cache: 'no-store',
+        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache, no-store' }
+      });
+      if(r2.ok){
+        D = await r2.json();
+        renderAll();
+        showToast("🔄 数据已自动更新 · " + (D.update_time_short||""));
+      }
+    }
+    _lastVersion = ver.v;
+  } catch(e){ /* 静默失败 */ }
+}
+// 启动自动轮询（30秒）
+setInterval(checkNewVersion, 30000);
 
 // ══════════════════════════════════════
 // 渲染入口

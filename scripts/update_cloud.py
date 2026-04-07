@@ -227,6 +227,7 @@ def run_update():
         "trading_status": trading_status,
         "source": "github-actions",
         "run_id": os.getenv("GITHUB_RUN_ID", "local"),
+        "cache_buster": now.strftime("%Y%m%d%H%M%S") + "_" + os.getenv("GITHUB_RUN_ID", "local"),
         "summary": {
             "total_value": round(total_value, 2),
             "normal_value": round(total_normal_value, 2),
@@ -289,10 +290,21 @@ def run_update():
 
     output["report_text"] = "\n".join(report)
 
-    # 保存
+    # 保存 data.json
     with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
         json.dump(output, f, ensure_ascii=False, indent=2)
+
+    # 保存 data_version.json（极轻量版本标记，供前端缓存检测）
+    version_path = os.path.join(OUTPUT_DIR, "data_version.json")
+    with open(version_path, 'w', encoding='utf-8') as f:
+        json.dump({
+            "v": output["cache_buster"],
+            "t": output["update_time"],
+            "ts": int(now.timestamp())
+        }, f, ensure_ascii=False)
+
     print(f"\n✅ data.json 已生成")
+    print(f"✅ data_version.json 已生成 (v={output['cache_buster']})")
     print(f"📊 总资产：¥{total_value:,.2f}")
     print(f"📈 今日盈亏：{'+' if total_today_pnl >= 0 else ''}¥{total_today_pnl:,.2f}")
 
