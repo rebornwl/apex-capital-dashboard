@@ -59,13 +59,10 @@ jobs:
             ISSUE_TITLE=$(echo "$ISSUE_DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
             ISSUE_BODY=$(echo "$ISSUE_DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['body'] or '')")
           fi
-
           echo "issue_num=$ISSUE_NUM" >> $GITHUB_OUTPUT
-          echo "issue_title=$ISSUE_TITLE" >> $GITHUB_OUTPUT
           echo "ISSUE_NUM=$ISSUE_NUM" >> $GITHUB_ENV
-          echo "ISSUE_TITLE=$ISSUE_TITLE" >> $GITHUB_ENV
           echo "$ISSUE_BODY" > /tmp/issue_body.txt
-          echo "📋 Issue #$ISSUE_NUM: $ISSUE_TITLE"
+          echo "Issue #$ISSUE_NUM: $ISSUE_TITLE"
 
       - name: ⏭️ 跳过（无待处理 Issue）
         if: steps.issue_info.outputs.issue_num == ''
@@ -73,740 +70,99 @@ jobs:
 
       - name: 🔍 下载 Issue 中的图片
         if: steps.issue_info.outputs.issue_num != ''
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p /tmp/screenshots
-
-          python3 << 'PYEOF'
-          import re, os, base64
-
-          with open("/tmp/issue_body.txt", "r", encoding="utf-8", errors="ignore") as f:
-              body = f.read()
-
-          pattern = r'data:image/(\w+);base64,([A-Za-z0-9+/=]+)'
-          matches = re.findall(pattern, body)
-
-          if matches:
-              print(f"📸 找到 {len(matches)} 张 base64 图片")
-              for i, (fmt, b64data) in enumerate(matches):
-                  ext = "jpg" if fmt in ("jpeg", "jfif") else fmt
-                  filepath = f"/tmp/screenshots/screenshot_{i+1:02d}.{ext}"
-                  try:
-                      with open(filepath, "wb") as imgf:
-                          imgf.write(base64.b64decode(b64data))
-                      size = os.path.getsize(filepath)
-                      print(f"  ✓ screenshot_{i+1:02d}.{ext} ({size:,} bytes)")
-                  except Exception as e:
-                      print(f"  ✗ screenshot_{i+1:02d}.{ext} 保存失败: {e}")
-          else:
-              print("⚠️ Issue body 中未找到 base64 图片，尝试查找已上传的图片URL...")
-              # 查找 markdown 图片链接
-              img_urls = re.findall(r'!\[.*?\]\((https://github\.com/[^)]+)\)', body)
-              if not img_urls:
-                  img_urls = re.findall(r'!\[.*?\]\((https://user-images\.githubusercontent\.com/[^)]+)\)', body)
-              if img_urls:
-                  print(f"📸 找到 {len(img_urls)} 张 URL 图片")
-                  for i, url in enumerate(img_urls):
-                      ext = url.split('.')[-1].split('?')[0]
-                      if ext not in ('png', 'jpg', 'jpeg', 'gif', 'webp'):
-                          ext = 'jpg'
-                      filepath = f"/tmp/screenshots/screenshot_{i+1:02d}.{ext}"
-                      import urllib.request
-                      try:
-                          req = urllib.request.Request(url)
-                          with urllib.request.urlopen(req, timeout=30) as resp:
-                              data = resp.read()
-                          with open(filepath, "wb") as f:
-                              f.write(data)
-                          print(f"  ✓ screenshot_{i+1:02d}.{ext} ({len(data):,} bytes)")
-                      except Exception as e:
-                          print(f"  ✗ screenshot_{i+1:02d}.{ext} 下载失败: {e}")
-              else:
-                  print("❌ 未找到任何图片")
-          PYEOF
-
+          python3 scripts/extract_images.py /tmp/issue_body.txt /tmp/screenshots
           echo "下载完成"
           ls -la /tmp/screenshots/ 2>/dev/null || echo "（无截图文件）"
 
-      - name: 🏷️ 标记为处理中 + 评论
+      - name: 🏷️ 标记为处理中
         if: steps.issue_info.outputs.issue_num != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           IMG_COUNT=$(ls /tmp/screenshots/ 2>/dev/null | wc -l)
-
           curl -s -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"labels":["holding-sync","processing"]}' \
             "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/labels" 2>/dev/null || true
+          python3 -c "
+          import json, urllib.request
+          msg = {'body': f'## 🔄 云端处理中\n\n已收到 **{env_var}** 张截图，正在自动OCR识别...\n\n预计 1-2 分钟完成'.replace('env_var', str($IMG_COUNT))}
+          req = urllib.request.Request(
+            f'https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments',
+            data=json.dumps(msg).encode(),
+            headers={'Authorization': 'token ${{ secrets.GITHUB_TOKEN }}', 'Content-Type': 'application/json'}
+          )
+          urllib.request.urlopen(req)
+          "
 
-          COMMENT_BODY="## 🔄 云端处理中
-
-          已收到 **${IMG_COUNT}** 张截图，GitHub Actions 正在自动处理。
-
-          ### 处理流程
-          1. ✅ 下载截图图片
-          2. 🔄 Tesseract OCR 识别中...
-          3. ⏳ 解析持仓数据
-          4. ⏳ 审核验证（前后对比）
-          5. ⏳ 更新 holdings.md
-
-          > ⏱️ 预计 1-2 分钟内完成"
-
-          curl -s -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"body\": $(echo "$COMMENT_BODY" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')}" \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments"
-
-      - name: 🔤 OCR 识别所有截图
+      - name: 🔤 OCR 识别
         if: steps.issue_info.outputs.issue_num != ''
         run: |
           mkdir -p /tmp/ocr_results
+          python3 scripts/ocr_screenshots.py /tmp/screenshots /tmp/ocr_results /tmp/ocr_combined.txt
 
-          python3 << 'PYEOF'
-          import subprocess, os, glob
-
-          screenshots = sorted(glob.glob("/tmp/screenshots/*"))
-          if not screenshots:
-              print("❌ 没有截图文件")
-              exit(1)
-
-          print(f"🔍 开始 OCR 识别 {len(screenshots)} 张截图...\n")
-
-          all_text_parts = []
-
-          for i, img_path in enumerate(screenshots):
-              fname = os.path.basename(img_path)
-              out_txt = f"/tmp/ocr_results/result_{i+1:02d}.txt"
-
-              print(f"📸 [{i+1}/{len(screenshots)}] {fname}")
-
-              try:
-                  # 先尝试 chi_sim+eng
-                  result = subprocess.run(
-                      ["tesseract", img_path, "stdout", "-l", "chi_sim+eng", "--psm", "6"],
-                      capture_output=True, text=True, timeout=120
-                  )
-                  text = result.stdout.strip()
-                  print(f"   识别到 {len(text)} 字符")
-
-                  with open(out_txt, "w", encoding="utf-8") as f:
-                      f.write(text)
-
-                  all_text_parts.append(f"=== 截图 {i+1}: {fname} ===\n{text}")
-
-                  preview = text[:300].replace("\n", " | ")
-                  print(f"   预览: {preview}...")
-
-              except subprocess.TimeoutExpired:
-                  print(f"   ❌ OCR 超时")
-              except Exception as e:
-                  print(f"   ❌ OCR 失败: {e}")
-
-              print()
-
-          combined = "\n\n".join(all_text_parts)
-          with open("/tmp/ocr_combined.txt", "w", encoding="utf-8") as f:
-              f.write(combined)
-
-          print(f"✅ OCR 完成，共识别 {len(screenshots)} 张截图")
-          print(f"📄 合并文本 {len(combined)} 字符")
-          PYEOF
-
-      - name: 🧠 解析 OCR → 生成新 holdings.md
+      - name: 🧠 解析并更新 holdings.md
         if: steps.issue_info.outputs.issue_num != ''
         run: |
-          python3 << 'PYEOF'
-          import re, os, json, copy
-          from datetime import datetime, timedelta
+          python3 scripts/update_holdings.py /tmp/ocr_combined.txt portfolio/holdings.md
 
-          # ===== 读取文件 =====
-          with open("/tmp/ocr_combined.txt", "r", encoding="utf-8") as f:
-              ocr_text = f.read()
-
-          with open("portfolio/holdings.md", "r", encoding="utf-8") as f:
-              old_content = f.read()
-
-          print("=" * 60)
-          print("OCR 原始文本（前2000字符）：")
-          print("-" * 60)
-          print(ocr_text[:2000])
-          print("-" * 60)
-
-          # ===== 解析 OCR 数据 =====
-          lines = ocr_text.split('\n')
-          funds_normal = []
-          funds_pension = []
-          current_section = "normal"
-          total_normal = None
-          total_pension = None
-          daily_pnl_normal = None
-          daily_pnl_pension = None
-          holding_pnl_normal = None
-          holding_pnl_pension = None
-
-          for line in lines:
-              line = line.strip()
-              if not line:
-                  continue
-
-              # 检测账户切换
-              if '养老金' in line and ('账户' in line or '持仓' in line):
-                  current_section = "pension"
-                  print(f"🔄 切换到养老金账户")
-                  continue
-              if ('普通' in line or '账户一' in line) and '账户' in line:
-                  current_section = "normal"
-                  print(f"🔄 切换到普通账户")
-                  continue
-
-              # 提取基金代码（6位数字，不以20开头避免日期误匹配）
-              code_match = re.search(r'(?<!\d)([01]\d{5})(?!\d)', line)
-              if not code_match:
-                  # 也尝试匹配 3/4/5 开头的6位代码
-                  code_match = re.search(r'(?<!\d)([3-9]\d{5})(?!\d)', line)
-
-              if code_match:
-                  code = code_match.group(1)
-                  # 排除日期格式的数字
-                  if len(code) == 6 and (code.startswith('202') or code.startswith('201') or code.startswith('203')):
-                      continue
-
-                  # 提取该行所有数值
-                  numbers = re.findall(r'[+-]?[\d,]+\.\d{2}', line)
-                  percentages = re.findall(r'[+-]?\d+\.?\d*%', line)
-
-                  # 提取基金名称（代码后面的中文字符）
-                  name_match = re.search(r'\d{6}\s*([^\d+\-¥,]{2,30})', line)
-                  fund_name = name_match.group(1).strip() if name_match else ""
-
-                  print(f"  基金: {code} {fund_name[:15]} | 数值: {numbers} | 百分比: {percentages}")
-
-                  # 至少有3个数值才认为是有效的基金行（总金额、日收益、持有收益）
-                  if len(numbers) >= 3:
-                      fund = {
-                          'code': code,
-                          'name': fund_name,
-                          'numbers': numbers,
-                          'percentages': percentages,
-                          'raw_line': line[:100]
-                      }
-                      if current_section == "pension":
-                          funds_pension.append(fund)
-                      else:
-                          funds_normal.append(fund)
-
-              # 提取总资产
-              total_match = re.search(r'总资产[^\d]*([\d,]+\.\d{2})', line)
-              if total_match:
-                  val = total_match.group(1)
-                  if current_section == "pension":
-                      total_pension = val
-                  else:
-                      total_normal = val
-
-              # 提取日盈亏
-              daily_match = re.search(r'(?:日[收盈][益亏]|今日[收盈][益亏])[^\d]*([+-]?[\d,]+\.\d{2})', line)
-              if daily_match:
-                  val = daily_match.group(1)
-                  if current_section == "pension":
-                      daily_pnl_pension = val
-                  else:
-                      daily_pnl_normal = val
-
-              # 提取持有收益
-              hold_match = re.search(r'持有[总]?[收盈][益亏][^\d]*([+-]?[\d,]+\.\d{2})', line)
-              if hold_match:
-                  val = hold_match.group(1)
-                  if current_section == "pension":
-                      holding_pnl_pension = val
-                  else:
-                      holding_pnl_normal = val
-
-          print(f"\n📊 OCR 识别结果：")
-          print(f"  普通账户: {len(funds_normal)} 支基金")
-          print(f"  养老金账户: {len(funds_pension)} 支基金")
-          if total_normal: print(f"  普通总资产: ¥{total_normal}")
-          if total_pension: print(f"  养老金总资产: ¥{total_pension}")
-
-          # ===== 保存解析结果 =====
-          parse_result = {
-              "status": "parsed",
-              "funds_normal_count": len(funds_normal),
-              "funds_pension_count": len(funds_pension),
-              "total_normal": total_normal,
-              "total_pension": total_pension,
-              "daily_pnl_normal": daily_pnl_normal,
-              "daily_pnl_pension": daily_pnl_pension,
-              "holding_pnl_normal": holding_pnl_normal,
-              "holding_pnl_pension": holding_pnl_pension,
-              "funds_normal": [{"code": f["code"], "name": f["name"][:20], "nums": f["numbers"]} for f in funds_normal],
-              "funds_pension": [{"code": f["code"], "name": f["name"][:20], "nums": f["numbers"]} for f in funds_pension],
-          }
-          with open("/tmp/ocr_parse_result.json", "w", encoding="utf-8") as f:
-              json.dump(parse_result, f, ensure_ascii=False, indent=2)
-
-          # ===== 审核验证 =====
-          issues = []
-          warnings = []
-
-          # 1. 基金数量检查（期望：普通20支、养老金5支）
-          if len(funds_normal) < 15:
-              issues.append(f"❌ 普通账户只识别到 {len(funds_normal)} 支基金（期望 20 支），OCR 可能遗漏了部分数据")
-          if len(funds_normal) > 25:
-              warnings.append(f"⚠️ 普通账户识别到 {len(funds_normal)} 支基金（期望 20 支），可能有误识别")
-          if len(funds_pension) < 3:
-              warnings.append(f"⚠️ 养老金账户只识别到 {len(funds_pension)} 支基金（期望 5 支）")
-
-          # 2. 从旧数据中提取已知基金信息（用于智能匹配）
-          old_fund_codes = set()
-          old_fund_names = {}
-          for m in re.finditer(r'\|\s*\d+\s*\|\s*(\d{6})\s*\|\s*([^|]+?)\s*\|', old_content):
-              code = m.group(1)
-              name = m.group(2).strip()
-              old_fund_codes.add(code)
-              old_fund_names[code] = name
-
-          print(f"\n📋 已知基金代码: {sorted(old_fund_codes)}")
-
-          # 3. 检查OCR识别的代码是否在已知列表中
-          ocr_normal_codes = set(f["code"] for f in funds_normal)
-          ocr_pension_codes = set(f["code"] for f in funds_pension)
-
-          # 普通账户基金代码（排除养老金）
-          known_normal = old_fund_codes - {"017268", "017294", "017353", "022951", "022979"}
-          known_pension = old_fund_codes & {"017268", "017294", "017353", "022951", "022979"}
-
-          missing_from_ocr = known_normal - ocr_normal_codes
-          extra_in_ocr = ocr_normal_codes - known_normal
-
-          if missing_from_ocr:
-              issues.append(f"❌ 以下已知基金未被OCR识别到（共{len(missing_from_ocr)}支）：{', '.join(sorted(missing_from_ocr))}")
-          if extra_in_ocr:
-              warnings.append(f"⚠️ OCR识别到不在已知列表中的基金代码：{', '.join(sorted(extra_in_ocr))}")
-
-          # ===== 智能合并：以OCR数据为主，补全遗漏的旧数据 =====
-          verified = len(issues) == 0
-
-          if len(funds_normal) >= 15:
-              # OCR 数据足够好，执行更新
-              print("\n✅ OCR 数据质量可接受，开始生成新的 holdings.md")
-
-              # 构建基金映射：code -> ocr_fund
-              ocr_normal_map = {f["code"]: f for f in funds_normal}
-              ocr_pension_map = {f["code"]: f for f in funds_pension}
-
-              # ---- 普通账户 ----
-              # 用OCR识别到的代码匹配旧数据中的完整信息
-              new_normal_rows = []
-              used_old_codes = set()
-
-              for f in funds_normal:
-                  code = f["code"]
-                  if code in old_fund_names:
-                      # 用旧名称（更准确），OCR数据更新数值
-                      name = old_fund_names[code]
-                      used_old_codes.add(code)
-                  else:
-                      # OCR中识别到的新基金
-                      name = f["name"] if f["name"] else "未知基金"
-
-                  nums = f["numbers"]
-                  total_amt = nums[0] if len(nums) >= 1 else "?"
-                  daily_ret = nums[1] if len(nums) >= 2 else "?"
-                  hold_ret = nums[2] if len(nums) >= 3 else "?"
-                  pct = f["percentages"][0] if f["percentages"] else "?"
-                  fund_type = "待确认"
-
-                  new_normal_rows.append(f"| {len(new_normal_rows)+1} | {code} | {name} | {fund_type} | {total_amt} | {daily_ret} | {hold_ret} | {pct} |")
-
-              # 检查旧数据中有没有遗漏的基金
-              for code in known_normal:
-                  if code not in ocr_normal_map:
-                      name = old_fund_names.get(code, "未知")
-                      warnings.append(f"⚠️ 基金 {code} {name} 在OCR中未找到，保留旧数据")
-                      # 从旧数据中提取这行
-                      old_match = re.search(rf'\|\s*\d+\s*\|\s*{code}\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|', old_content)
-                      if old_match:
-                          new_normal_rows.append(f"| {len(new_normal_rows)+1} | {code} | {old_match.group(1).strip()} | {old_match.group(2).strip()} | {old_match.group(3).strip()} | {old_match.group(4).strip()} | {old_match.group(5).strip()} | {old_match.group(6).strip()} | ⚠️保留旧值 |")
-
-              # ---- 养老金账户 ----
-              new_pension_rows = []
-              for f in funds_pension:
-                  code = f["code"]
-                  if code in old_fund_names:
-                      name = old_fund_names[code]
-                  else:
-                      name = f["name"] if f["name"] else "未知基金"
-
-                  nums = f["numbers"]
-                  total_amt = nums[0] if len(nums) >= 1 else "?"
-                  daily_ret = nums[1] if len(nums) >= 2 else "?"
-                  hold_ret = nums[2] if len(nums) >= 3 else "?"
-                  pct = f["percentages"][0] if f["percentages"] else "?"
-
-                  new_pension_rows.append(f"| {len(new_pension_rows)+1} | {code} | {name} | 养老FOF | {total_amt} | {daily_ret} | {hold_ret} | {pct} |")
-
-              # 如果养老金没识别到，保留旧数据
-              if len(new_pension_rows) == 0:
-                  warnings.append("⚠️ 养老金账户数据未识别，保留旧数据")
-                  pension_section = re.search(r'## 账户二.*?(?=## 总资产|$)', old_content, re.DOTALL)
-                  if pension_section:
-                      for m in re.finditer(r'\|\s*\d+\s*\|(\s*\d{6}\s*\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+)\|', pension_section.group()):
-                          new_pension_rows.append(f"| {len(new_pension_rows)+1}{m.group(1)} | ⚠️保留旧值 |")
-
-              # ---- 生成新的 holdings.md ----
-              now_utc = datetime.utcnow()
-              now_cn = now_utc + timedelta(hours=8)
-              weekday = now_cn.weekday()
-              if weekday >= 5:
-                  days_back = weekday - 4
-                  base_date = now_cn - timedelta(days=days_back)
-              elif now_cn.hour < 15:
-                  days_back = 1 if weekday > 0 else 3
-                  base_date = now_cn - timedelta(days=days_back)
-              else:
-                  base_date = now_cn
-              date_str = base_date.strftime("%Y-%m-%d")
-
-              # 计算合计
-              def parse_num(s):
-                  if s == "?": return 0
-                  return float(s.replace(",", "").replace("+", ""))
-
-              normal_total = sum(parse_num(row.split("|")[5].strip()) for row in new_normal_rows)
-              pension_total = sum(parse_num(row.split("|")[5].strip()) for row in new_pension_rows)
-              grand_total = normal_total + pension_total
-
-              normal_daily = sum(parse_num(row.split("|")[6].strip()) for row in new_normal_rows)
-              pension_daily = sum(parse_num(row.split("|")[6].strip()) for row in new_pension_rows)
-
-              normal_hold = sum(parse_num(row.split("|")[7].strip()) for row in new_normal_rows)
-              pension_hold = sum(parse_num(row.split("|")[7].strip()) for row in new_pension_rows)
-
-              # 提取累计收益（从旧数据中保留，因为OCR通常识别不到）
-              cum_match = re.search(r'累计总收益[：:]*([+-]?[\d,]+\.\d{2})', old_content)
-              cumulative = cum_match.group(1) if cum_match else "+30,187.71"
-
-              new_content = f"""# 持仓台账 — 巅峰资本管理有限公司
-# Portfolio Agent 管理 | 建立时间：2026-04-06
-# 数据基准日：{date_str}
-
----
-
-## 账户一：普通基金账户
-
-| 序号 | 基金代码 | 基金名称 | 类型 | 总金额(¥) | 日收益(¥) | 持有收益(¥) | 持有收益率 |
-|-----|---------|---------|------|-----------|----------|------------|----------|
-{chr(10).join(new_normal_rows)}
-
-**账户一小计：¥{normal_total:,.2f}**
-- {date_str[5:]}日盈亏：{normal_daily:+,.2f}¥
-- 持有总收益：{normal_hold:+,.2f}¥
-- 累计总收益：{cumulative}¥
-
-"""
-
-              # 添加变动记录（如果有warning）
-              if warnings:
-                  new_content += "> ⚠️ OCR识别备注：\n"
-                  for w in warnings:
-                      new_content += f"> - {w}\n"
-                  new_content += "\n"
-
-              new_content += f"""---
-
-## 账户二：个人养老金账户
-
-| 序号 | 基金代码 | 基金名称 | 类型 | 总金额(¥) | 日收益(¥) | 持有收益(¥) | 持有收益率 |
-|-----|---------|---------|------|-----------|----------|------------|----------|
-{chr(10).join(new_pension_rows)}
-
-**账户二小计：¥{pension_total:,.2f}**
-- {date_str[5:]}日盈亏：{pension_daily:+,.2f}¥
-- 持有总收益：{pension_hold:+,.2f}¥
-
----
-
-## 总资产汇总
-
-| 项目 | 金额 |
-|-----|------|
-| 普通账户 | ¥{normal_total:,.2f} |
-| 养老金账户 | ¥{pension_total:,.2f} |
-| **总资产** | **¥{grand_total:,.2f}** |
-| 今日盈亏 | {normal_daily + pension_daily:+,.2f}¥ |
-| 普通账户持有收益 | {normal_hold:+,.2f}¥ |
-| 普通账户累计收益 | {cumulative}¥ |
-| 养老金账户持有收益 | {pension_hold:+,.2f}¥ |
-
----
-*数据基准：{date_str} | Portfolio Agent 更新 | OCR云端自动识别*
-"""
-
-              with open("portfolio/holdings.md", "w", encoding="utf-8") as f:
-                  f.write(new_content)
-
-              print(f"\n✅ holdings.md 已更新")
-              print(f"  普通账户: {len(new_normal_rows)} 支，合计 ¥{normal_total:,.2f}")
-              print(f"  养老金账户: {len(new_pension_rows)} 支，合计 ¥{pension_total:,.2f}")
-              print(f"  总资产: ¥{grand_total:,.2f}")
-
-              # 保存更新状态
-              update_status = {
-                  "updated": True,
-                  "date": date_str,
-                  "normal_count": len(new_normal_rows),
-                  "pension_count": len(new_pension_rows),
-                  "normal_total": f"{normal_total:,.2f}",
-                  "pension_total": f"{pension_total:,.2f}",
-                  "grand_total": f"{grand_total:,.2f}",
-                  "issues": issues,
-                  "warnings": warnings,
-              }
-          else:
-              print("\n⚠️ OCR 数据不足，不更新 holdings.md")
-              update_status = {
-                  "updated": False,
-                  "issues": issues,
-                  "warnings": warnings,
-                  "funds_normal_count": len(funds_normal),
-                  "funds_pension_count": len(funds_pension),
-              }
-
-          with open("/tmp/update_status.json", "w", encoding="utf-8") as f:
-              json.dump(update_status, f, ensure_ascii=False, indent=2)
-
-          with open("/tmp/base_date.txt", "w") as f:
-              f.write(date_str)
-
-          # 保存差异报告
-          diff_report = {
-              "old_normal_count": len(known_normal),
-              "new_normal_count": len(funds_normal),
-              "missing_funds": sorted(list(missing_from_ocr)),
-              "extra_funds": sorted(list(extra_in_ocr)),
-              "ocr_normal_codes": sorted(list(ocr_normal_codes)),
-          }
-          with open("/tmp/diff_report.json", "w", encoding="utf-8") as f:
-              json.dump(diff_report, f, ensure_ascii=False, indent=2)
-          PYEOF
-
-      - name: 📊 生成审核报告并评论
+      - name: 📊 审核报告评论
         if: steps.issue_info.outputs.issue_num != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python3 << 'PYEOF'
-          import json, subprocess, sys
+          python3 scripts/post_review_report.py ${{ steps.issue_info.outputs.issue_num }} /tmp/update_status.json /tmp/ocr_combined.txt
 
-          with open("/tmp/update_status.json", "r", encoding="utf-8") as f:
-              status = json.load(f)
-
-          with open("/tmp/ocr_combined.txt", "r", encoding="utf-8") as f:
-              ocr_text = f.read()
-
-          issue_num = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("ISSUE_NUM", "?")
-
-          if status.get("updated"):
-              # ===== 成功更新 =====
-              fund_details = []
-              with open("/tmp/ocr_parse_result.json", "r", encoding="utf-8") as f:
-                  parse = json.load(f)
-
-              # 普通账户明细
-              normal_lines = []
-              for f in parse.get("funds_normal", []):
-                  nums = f["nums"]
-                  total = nums[0] if len(nums) >= 1 else "?"
-                  daily = nums[1] if len(nums) >= 2 else "?"
-                  hold = nums[2] if len(nums) >= 3 else "?"
-                  name = f.get("name", "")[:15]
-                  normal_lines.append(f"| {f['code']} | {name} | {total} | {daily} | {hold} |")
-
-              # 养老金明细
-              pension_lines = []
-              for f in parse.get("funds_pension", []):
-                  nums = f["nums"]
-                  total = nums[0] if len(nums) >= 1 else "?"
-                  daily = nums[1] if len(nums) >= 2 else "?"
-                  hold = nums[2] if len(nums) >= 3 else "?"
-                  name = f.get("name", "")[:15]
-                  pension_lines.append(f"| {f['code']} | {name} | {total} | {daily} | {hold} |")
-
-              comment = f"""## ✅ 持仓数据已更新
-
-### 📊 更新摘要
-- 📅 数据基准日：{status['date']}
-- 普通账户：**{status['normal_count']}** 支基金，合计 **¥{status['normal_total']}**
-- 养老金账户：**{status['pension_count']}** 支基金，合计 **¥{status['pension_total']}**
-- 💰 总资产：**¥{status['grand_total']}**
-
-### 📋 普通账户明细
-| 代码 | 名称 | 总金额 | 日收益 | 持有收益 |
-|-----|------|--------|--------|---------|
-{chr(10).join(normal_lines[:10])}
-{"| ... | ... | ... | ... | ... |" if len(normal_lines) > 10 else ""}
-
-### 📋 养老金账户明细
-| 代码 | 名称 | 总金额 | 日收益 | 持有收益 |
-|-----|------|--------|--------|---------|
-{chr(10).join(pension_lines)}
-
-"""
-
-              # 添加差异报告
-              with open("/tmp/diff_report.json", "r", encoding="utf-8") as f:
-                  diff = json.load(f)
-
-              if diff.get("missing_funds"):
-                  comment += f"""### ⚠️ 未识别到的基金（保留了旧数据）
-{chr(10).join('- ' + c for c in diff['missing_funds'])}
-
-"""
-              if diff.get("extra_funds"):
-                  comment += f"""### ℹ️ 新识别到的基金代码
-{chr(10).join('- ' + c for c in diff['extra_funds'])}
-
-"""
-
-              if status.get("warnings"):
-                  comment += "### ⚠️ 备注\n"
-                  for w in status["warnings"]:
-                      comment += f"- {w}\n"
-                  comment += "\n"
-
-              comment += """<details>
-              <summary>📄 点击查看完整 OCR 原始文本</summary>
-
-              ```
-              """ + ocr_text[:3000] + """
-              ...
-              ```
-
-              </details>
-
-              > ✅ `portfolio/holdings.md` 已自动更新，数据刷新工作流已触发
-              > 💡 如发现数据有误，请在 WorkBuddy 对话中发送截图让 AI 修正"""
-
-          else:
-              # ===== 更新失败 =====
-              comment = f"""## ⚠️ OCR 识别数据不足，未更新持仓
-
-              识别到的基金数量低于预期：
-              - 普通账户：{status.get('funds_normal_count', 0)} 支（期望 20 支）
-              - 养老金账户：{status.get('funds_pension_count', 0)} 支（期望 5 支）
-
-              ### 可能原因
-              - 截图模糊或裁剪不完整
-              - 基金名称过长导致换行，OCR 无法正确识别
-              - 截图中包含了非持仓页面的内容
-
-              <details>
-              <summary>📄 点击查看完整 OCR 原始文本</summary>
-
-              ```
-              """ + ocr_text[:3000] + """
-              ...
-              ```
-
-              </details>
-
-              > 💡 建议：重新截取完整的持仓页面截图，或在 WorkBuddy 对话中直接发送截图让 AI 更新"""
-
-          # 安全转义后发评论
-          safe_comment = comment.replace("'", "'").replace('"', '\\"').replace("`", "\\`").replace("|", "\\|")
-          print(f"评论长度: {len(comment)} 字符")
-
-          # 写入文件避免 shell 转义问题
-          with open("/tmp/comment_body.json", "w", encoding="utf-8") as f:
-              json.dump({"body": comment}, f, ensure_ascii=False)
-
-          print("审核报告已生成")
-          PYEOF
-
-          # 发送评论
-          curl -s -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d @/tmp/comment_body.json \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments"
-
-          echo "📊 审核报告已发布到 Issue"
-
-      - name: 📤 提交并推送更新
+      - name: 📤 提交并推送
         if: steps.issue_info.outputs.issue_num != ''
         run: |
-          BASE_DATE=$(cat /tmp/base_date.txt 2>/dev/null || echo "unknown")
           UPDATED=$(python3 -c "import json; print(json.load(open('/tmp/update_status.json')).get('updated', False))")
-
           if [ "$UPDATED" = "False" ]; then
-              echo "⚠️ OCR 数据不足，跳过 holdings.md 更新"
-              echo "skip_push=true" >> $GITHUB_ENV
-              exit 0
+            echo "OCR 数据不足，跳过推送"
+            echo "skip_push=true" >> $GITHUB_ENV
+            exit 0
           fi
-
+          BASE_DATE=$(cat /tmp/base_date.txt 2>/dev/null || echo "unknown")
           git config user.name "Apex Capital Bot"
           git config user.email "bot@apexcapital.local"
-
           git add portfolio/holdings.md
-
           if git diff --cached --quiet; then
-              echo "📝 holdings.md 无变更"
-              echo "skip_push=true" >> $GITHUB_ENV
+            echo "holdings.md 无变更"
+            echo "skip_push=true" >> $GITHUB_ENV
           else
-              git commit -m "🔄 OCR截图同步 ${BASE_DATE}（Issue #${{ steps.issue_info.outputs.issue_num }}）"
-              git push origin main
-              echo "✅ 已推送到 GitHub"
-              echo "skip_push=false" >> $GITHUB_ENV
+            git commit -m "🔄 OCR截图同步 ${BASE_DATE}（Issue #${{ steps.issue_info.outputs.issue_num }}）"
+            git push origin main
+            echo "已推送到 GitHub"
+            echo "skip_push=false" >> $GITHUB_ENV
           fi
 
-      - name: 🎉 标记 Issue 为已完成
+      - name: 🎉 关闭 Issue
         if: steps.issue_info.outputs.issue_num != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BASE_DATE=$(cat /tmp/base_date.txt 2>/dev/null || echo "unknown")
           UPDATED=$(python3 -c "import json; print(json.load(open('/tmp/update_status.json')).get('updated', False))")
-
-          # 关闭 Issue
+          BASE_DATE=$(cat /tmp/base_date.txt 2>/dev/null || echo "unknown")
           curl -s -X PATCH \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"state":"closed"}' \
             "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}"
-
           if [ "$UPDATED" = "True" ]; then
-              FINISH_MSG="## ✅ 处理完成
-
-          - 📅 数据基准日：${BASE_DATE}
-          - 📄 holdings.md 已更新
-          - 🔄 数据刷新工作流已自动触发
-          - 📊 仪表盘将在 1-2 分钟内显示最新数据
-
-          > 💡 如发现数据有误，请重新上传截图或在 WorkBuddy 对话中修正"
+            MSG="## ✅ 处理完成 - holdings.md 已更新, 仪表盘1-2分钟内刷新"
           else
-              FINISH_MSG="## ⚠️ 处理完成（数据未更新）
-
-          OCR 识别数据不足，holdings.md 未被修改。
-          请重新截取更清晰的持仓截图后重新上传。
-
-          > 💡 也可在 WorkBuddy 对话中直接发送截图让 AI 更新"
+            MSG="## ⚠️ OCR数据不足未更新, 请重新截图上传或用WorkBuddy对话更新"
           fi
-
-          echo "$FINISH_MSG" | python3 -c '
-          import sys, json
-          msg = sys.stdin.read()
-          json.dump({"body": msg}, open("/tmp/finish_msg.json", "w"), ensure_ascii=False)
-          '
-
-          curl -s -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d @/tmp/finish_msg.json \
-            "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments"
-
-          echo "🎉 Issue 已关闭"
+          python3 -c "
+          import json, urllib.request
+          req = urllib.request.Request(
+            f'https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments',
+            data=json.dumps({'body': '''$MSG'''}).encode(),
+            headers={'Authorization': 'token ${{ secrets.GITHUB_TOKEN }}', 'Content-Type': 'application/json'}
+          )
+          urllib.request.urlopen(req)
+          "
+          echo "Issue 已关闭"
