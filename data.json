@@ -1,33 +1,33 @@
 {
-  "update_time": "2026-04-08 07:56:12",
-  "update_time_short": "04-08 07:56",
+  "update_time": "2026-04-08 08:16:05",
+  "update_time_short": "04-08 08:16",
   "is_trading_day": true,
   "trading_status": "已收盘",
   "source": "github-actions",
-  "run_id": "24124433313",
-  "cache_buster": "20260408075612_24124433313",
+  "run_id": "24125224682",
+  "cache_buster": "20260408081605_24125224682",
   "summary": {
-    "total_value": 285377.62,
-    "normal_value": 272388.25,
-    "pension_value": 12989.37,
+    "total_value": 285378.13,
+    "normal_value": 272388.02,
+    "pension_value": 12990.1,
     "total_cost": 266470.24,
-    "total_hold_pnl": 18907.38,
+    "total_hold_pnl": 18907.89,
     "total_hold_pnl_pct": 7.1,
-    "today_pnl": 8403.8,
-    "normal_today_pnl": 8187.07,
-    "pension_today_pnl": 216.73,
+    "today_pnl": 8404.31,
+    "normal_today_pnl": 8186.84,
+    "pension_today_pnl": 217.47,
     "fund_count": 25,
     "normal_count": 20,
     "pension_count": 5
   },
   "type_distribution": {
     "qdii": {
-      "value": 117642.11,
+      "value": 117657.3,
       "count": 8,
       "pct": 41.2
     },
     "mix": {
-      "value": 92343.61,
+      "value": 92327.33,
       "count": 7,
       "pct": 32.4
     },
@@ -37,17 +37,17 @@
       "pct": 10.4
     },
     "stock": {
-      "value": 24007.66,
+      "value": 24006.71,
       "count": 2,
       "pct": 8.4
     },
     "fof": {
-      "value": 12511.3,
+      "value": 12512.04,
       "count": 4,
       "pct": 4.4
     },
     "bond": {
-      "value": 9230.68,
+      "value": 9232.5,
       "count": 1,
       "pct": 3.2
     }
@@ -73,16 +73,16 @@
       "name": "汇添富恒生科技ETF联接发起式(QDII)C",
       "type": "QDII指数",
       "tag": "qdii",
-      "nav": 0.7754,
+      "nav": 0.7758,
       "nav_date": "2026-04-08",
-      "today_pct": 4.9,
-      "market_value": 26556.62,
-      "today_pnl": 1240.49,
-      "hold_pnl": -4710.02,
-      "hold_pnl_pct": -15.06,
+      "today_pct": 4.96,
+      "market_value": 26571.81,
+      "today_pnl": 1255.68,
+      "hold_pnl": -4694.83,
+      "hold_pnl_pct": -15.02,
       "profit": "down",
       "warnings": [
-        "CRO预警:亏损-15.1%"
+        "CRO预警:亏损-15.0%"
       ]
     },
     {
@@ -120,13 +120,13 @@
       "name": "易方达竞争优势企业混合C",
       "type": "主动混合",
       "tag": "mix",
-      "nav": 0.5837,
+      "nav": 0.5832,
       "nav_date": "2026-04-08",
-      "today_pct": 3.71,
-      "market_value": 18767.11,
-      "today_pnl": 671.35,
-      "hold_pnl": -659.38,
-      "hold_pnl_pct": -3.39,
+      "today_pct": 3.62,
+      "market_value": 18750.83,
+      "today_pnl": 655.07,
+      "hold_pnl": -675.66,
+      "hold_pnl_pct": -3.48,
       "profit": "down",
       "warnings": []
     },
@@ -225,13 +225,13 @@
       "name": "汇添富稳健收益混合A",
       "type": "混合偏债",
       "tag": "bond",
-      "nav": 1.0574,
+      "nav": 1.0577,
       "nav_date": "2026-04-08",
-      "today_pct": 1.24,
-      "market_value": 9230.68,
-      "today_pnl": 113.06,
-      "hold_pnl": -257.94,
-      "hold_pnl_pct": -2.72,
+      "today_pct": 1.26,
+      "market_value": 9232.5,
+      "today_pnl": 114.88,
+      "hold_pnl": -256.12,
+      "hold_pnl_pct": -2.7,
       "profit": "down",
       "warnings": []
     },
@@ -270,7 +270,7 @@
       "name": "中欧周期优选混合发起A",
       "type": "主动混合",
       "tag": "mix",
-      "nav": 2.1904,
+      "nav": 2.1903,
       "nav_date": "2026-04-08",
       "today_pct": 4.65,
       "market_value": 9138.54,
@@ -315,13 +315,13 @@
       "name": "同泰行业优选股票C",
       "type": "股票型",
       "tag": "stock",
-      "nav": 0.5865,
+      "nav": 0.5863,
       "nav_date": "2026-04-08",
-      "today_pct": 6.6,
-      "market_value": 3405.12,
-      "today_pnl": 210.82,
-      "hold_pnl": 223.59,
-      "hold_pnl_pct": 7.03,
+      "today_pct": 6.57,
+      "market_value": 3404.17,
+      "today_pnl": 209.87,
+      "hold_pnl": 222.64,
+      "hold_pnl_pct": 7.0,
       "profit": "up",
       "warnings": []
     },
@@ -396,13 +396,13 @@
       "name": "工银养老2050五年持有Y",
       "type": "养老FOF",
       "tag": "fof",
-      "nav": 1.4271,
+      "nav": 1.4276,
       "nav_date": "2026-04-08",
-      "today_pct": 4.51,
-      "market_value": 1930.72,
-      "today_pnl": 83.32,
-      "hold_pnl": -69.28,
-      "hold_pnl_pct": -3.46,
+      "today_pct": 4.55,
+      "market_value": 1931.46,
+      "today_pnl": 84.06,
+      "hold_pnl": -68.54,
+      "hold_pnl_pct": -3.43,
       "profit": "down",
       "warnings": [],
       "is_pension": true
@@ -469,16 +469,16 @@
       {
         "code": "012497",
         "name": "同泰行业优选股票C",
-        "pct": 7.03,
-        "pnl": 223.59
+        "pct": 7.0,
+        "pnl": 222.64
       }
     ],
     "top_loss": [
       {
         "code": "013128",
         "name": "汇添富恒生科技ETF联接发起式(QDII)C",
-        "pct": -15.06,
-        "pnl": -4710.02
+        "pct": -15.02,
+        "pnl": -4694.83
       },
       {
         "code": "019888",
@@ -499,13 +499,13 @@
         "pnl": -475.7
       },
       {
-        "code": "378006",
-        "name": "摩根全球新兴市场混合(QDII)",
-        "pct": -3.45,
-        "pnl": -68.94
+        "code": "010849",
+        "name": "易方达竞争优势企业混合C",
+        "pct": -3.48,
+        "pnl": -675.66
       }
     ]
   },
-  "report_text": "📊 巅峰资本 · 基金持仓日报（云端自动生成）\n⏰ 2026-04-08 07:56:12 | 已收盘\n\n💰 总资产：¥285,377.62\n   普通账户：¥272,388.25  |  养老金：¥12,989.37\n📈 今日盈亏：+¥8,403.80\n📊 持有收益：+¥18,907.38 (+7.10%)\n🏆 今日最强：易方达全球成长精选混合(QDII)人民币A (+63.04%)\n⚠ 今日最弱：汇添富恒生科技ETF联接发起式(QDII)C (-15.06%)\n\n🚨 需关注亏损仓位：\n   • 汇添富恒生科技ETF联接发起式(QDII)C(013128) -15.06% ¥26,557\n   • 中欧周期优选混合发起A(019888) -8.06% ¥9,139\n   • 南方纳斯达克100指数发起(QDII)C(016453) -6.19% ¥1,126",
+  "report_text": "📊 巅峰资本 · 基金持仓日报（云端自动生成）\n⏰ 2026-04-08 08:16:05 | 已收盘\n\n💰 总资产：¥285,378.13\n   普通账户：¥272,388.02  |  养老金：¥12,990.10\n📈 今日盈亏：+¥8,404.31\n📊 持有收益：+¥18,907.89 (+7.10%)\n🏆 今日最强：易方达全球成长精选混合(QDII)人民币A (+63.04%)\n⚠ 今日最弱：汇添富恒生科技ETF联接发起式(QDII)C (-15.02%)\n\n🚨 需关注亏损仓位：\n   • 汇添富恒生科技ETF联接发起式(QDII)C(013128) -15.02% ¥26,572\n   • 中欧周期优选混合发起A(019888) -8.06% ¥9,139\n   • 南方纳斯达克100指数发起(QDII)C(016453) -6.19% ¥1,126",
   "data_stale": null
 }
