@@ -7,6 +7,7 @@
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 :root{--primary:#4F46E5;--primary-light:#818CF8;--primary-dark:#3730A3;--secondary:#7C3AED;--accent:#06B6D4;--success:#10B981;--danger:#EF4444;--warning:#F59E0B;--info:#3B82F6;--bg:#F1F5F9;--card-bg:#FFFFFF;--text:#0F172A;--text-secondary:#64748B;--text-tertiary:#94A3B8;--border:#E2E8F0;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);--shadow-lg:0 10px 25px rgba(0,0,0,.1);--radius:16px;--radius-sm:12px;--radius-xs:8px;--nav-height:68px;--gradient:linear-gradient(135deg,#4F46E5,#7C3AED);--font:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif}
@@ -378,42 +379,105 @@ const Storage = {
 };
 
 // ==================== FUND API ====================
+// Uses 天天基金 official API endpoints:
+//   Source 1: fundgz.1234567.com.cn  — 实时估值（JSONP, callback=jsonpgz）
+//   Source 2: fund.eastmoney.com/pingzhongdata — 基金详情（全局变量注入）
 class FundAPI {
-  constructor(){this.cache={};this.cid=0}
+  constructor(){
+    this.cache={};
+    this._jq=[];   // JSONP queue
+    this._jp=false; // processing flag
+    this._src1Ok=0; this._src2Ok=0; // success counters
+  }
+
+  /* JSONP with hardcoded jsonpgz callback (天天基金特有格式) */
   _jsonp(url){
     return new Promise((rs,rj)=>{
-      const cb=`_apex_${++this.cid}`;const s=document.createElement('script');
-      const t=setTimeout(()=>{s.parentNode&&s.parentNode.removeChild(s);delete window[cb];rj(new Error('timeout'))},CONFIG.JSONP_TIMEOUT);
-      window[cb]=(d)=>{clearTimeout(t);s.parentNode&&s.parentNode.removeChild(s);delete window[cb];rs(d)};
-      s.src=url.replace('{callback}',cb);document.head.appendChild(s);
+      this._jq.push({url,resolve:rs,reject:rj});
+      this._nextJSONP();
     });
   }
+  _nextJSONP(){
+    if(this._jp||!this._jq.length)return;
+    this._jp=true;
+    const {url,resolve,reject}=this._jq[0];
+    const to=setTimeout(()=>{this._cleanJSONP();this._jq.shift();this._jp=false;reject(new Error('超时'));this._nextJSONP()},CONFIG.JSONP_TIMEOUT);
+    window.jsonpgz=(d)=>{clearTimeout(to);this._cleanJSONP();this._jq.shift();this._jp=false;resolve(d);this._src1Ok++;this._nextJSONP()};
+    const s=document.createElement('script');
+    s.src=url;
+    s.onerror=()=>{clearTimeout(to);this._cleanJSONP();this._jq.shift();this._jp=false;reject(new Error('加载失败'));this._nextJSONP()};
+    document.head.appendChild(s);
+  }
+  _cleanJSONP(){delete window.jsonpgz;}
+
+  /* Source 1: 实时估值 — 返回最新净值和盘中估值 */
   async fetchRealTime(code){
     if(!code||!/^\d{6}$/.test(code))return null;
-    const ck=`rt_${code}`;const ca=this.cache[ck];
-    if(ca&&Date.now()-ca.ts<60000)return ca.data;
+    const ck='rt_'+code;
+    const ca=this.cache[ck];
+    if(ca&&Date.now()-ca.ts<30000)return ca.data; // 30s cache
     try{
-      const d=await this._jsonp(CONFIG.API.REAL_TIME.replace('{code}',code));
-      const r={code:d.fundcode,name:d.name,navDate:d.jzrq,nav:parseFloat(d.dwjz)||0,estimate:parseFloat(d.gsz)||0,estimateChange:parseFloat(d.gszzl)||0,estimateTime:d.gztime,fetchedAt:new Date().toISOString(),success:true};
-      this.cache[ck]={data:r,ts:Date.now()};return r;
-    }catch(e){return null}
+      const d=await this._jsonp('https://fundgz.1234567.com.cn/js/'+code+'.js');
+      const r={
+        code:d.fundcode,name:d.name||'',navDate:d.jzrq||'',
+        nav:parseFloat(d.dwjz)||0,estimate:parseFloat(d.gsz)||0,
+        estimateChange:parseFloat(d.gszzl)||0,estimateTime:d.gztime||'',
+        fetchedAt:new Date().toISOString(),success:true,
+        source:'天天基金-实时估值'
+      };
+      this.cache[ck]={data:r,ts:Date.now()};
+      return r;
+    }catch(e){
+      // Fallback to source 2 for name only
+      const name=await this._fetchName(code);
+      if(name)return{code,name,nav:0,estimate:0,estimateChange:0,success:true,source:'天天基金-基金详情'};
+      return null;
+    }
   }
+
+  /* Source 2: 基金详情（通过全局变量注入获取基金名称等） */
+  _fetchName(code){
+    return new Promise((rs)=>{
+      const to=setTimeout(()=>{delete window.fS_name;rs(null)},CONFIG.JSONP_TIMEOUT);
+      const prev=window.fS_name;
+      window.fS_name=undefined;
+      const s=document.createElement('script');
+      s.src='https://fund.eastmoney.com/pingzhongdata/'+code+'.js';
+      s.onload=()=>{
+        clearTimeout(to);
+        // The script sets window.fS_name, window.fS_code
+        const name=window.fS_name||null;
+        window.fS_name=prev; // restore
+        if(name)this._src2Ok++;
+        rs(name);
+      };
+      s.onerror=()=>{clearTimeout(to);window.fS_name=prev;rs(null)};
+      document.head.appendChild(s);
+    });
+  }
+
+  /* Batch fetch for portfolio */
   async batchFetch(codes){
     if(!codes.length)return{};
-    const r={};const chunks=[];
-    for(let i=0;i<codes.length;i+=3)chunks.push(codes.slice(i,i+3));
-    for(const c of chunks)await Promise.allSettled(c.map(code=>this.fetchRealTime(code).then(d=>{if(d)r[code]=d})));
+    const r={};
+    for(let i=0;i<codes.length;i+=3){
+      await Promise.allSettled(codes.slice(i,i+3).map(c=>this.fetchRealTime(c).then(d=>{if(d)r[c]=d})));
+    }
     return r;
   }
+
+  /* Test single connection with timing */
   async testConnection(code){
-    if(!code||!/^\d{6}$/.test(code))return{success:false,error:'无效代码'};
+    if(!code||!/^\d{6}$/.test(code))return{success:false,error:'无效代码',ms:0};
     const start=Date.now();
     try{
       const d=await this.fetchRealTime(code);
       if(!d)return{success:false,error:'无响应',ms:Date.now()-start};
-      return{success:true,name:d.name,nav:d.nav,estimate:d.estimate,ms:Date.now()-start};
+      return{success:true,name:d.name,nav:d.nav,estimate:d.estimate,ms:Date.now()-start,source:d.source};
     }catch(e){return{success:false,error:e.message,ms:Date.now()-start}}
   }
+
+  getStats(){return{src1Ok:this._src1Ok,src2Ok:this._src2Ok}}
 }
 
 // ==================== PORTFOLIO MANAGER ====================
@@ -764,100 +828,172 @@ class App {
     this.pm.clearAll();this._renderAll();this._toast('已清空所有持仓');
   }
 
-  // ---- File Upload (simplified, no heavy OCR) ----
+  // ---- Screenshot Upload with OCR + Manual Fallback ----
   async _handleUpload(files){
     if(!files||!files.length)return;
     const container=document.getElementById('ocr-results');
-    container.innerHTML='<div class="loading"><div class="loading-spinner"></div>正在解析图片，请稍候...</div>';
+    container.innerHTML='<div class="loading"><div class="loading-spinner"></div>准备识别...</div>';
 
-    // Process each image: extract fund code candidates using simple pattern matching
     const allFunds=[];
+
     for(const file of files){
       if(!file.type.startsWith('image/'))continue;
+
+      // Show image preview
+      const imgUrl=URL.createObjectURL(file);
+      container.innerHTML=`<div class="ocr-result"><h4>📸 截图预览</h4><img src="${imgUrl}" style="width:100%;border-radius:8px;max-height:300px;object-fit:contain;background:var(--bg)"></div><div class="ocr-result" id="ocr-progress"><div class="loading"><div class="loading-spinner"></div>正在识别文字...</div></div>`;
+
+      // Try Tesseract.js OCR (non-blocking)
+      let ocrText='';
       try{
-        const text=await this._simpleOCR(file);
-        const funds=this._parseTextForFunds(text);
-        funds.forEach(f=>{if(!allFunds.find(x=>x.code===f.code&&x.code))allFunds.push(f)});
-      }catch(e){console.warn('OCR fail:',e)}
-    }
-
-    container.innerHTML='';
-    if(!allFunds.length){
-      container.innerHTML='<div class="ocr-result"><h4>未识别到基金数据</h4><p style="font-size:.8rem;color:var(--text-secondary)">建议手动输入基金代码进行添加</p><div style="margin-top:.5rem"><button class="btn-primary" id="ocr-manual-btn" style="width:100%;padding:.6rem">手动添加</button></div></div>';
-      document.getElementById('ocr-manual-btn').addEventListener('click',()=>{container.innerHTML='';document.getElementById('upload-section').style.display='none';this._showAddFund()});
-      this._toast('未识别到数据，请手动添加');
-      return;
-    }
-
-    // Try to fetch API data for each detected code
-    let html=`<div class="ocr-result"><h4>📋 检测到 ${allFunds.length} 只基金</h4>`;
-    for(const f of allFunds){
-      if(f.code){const api=await this.api.fetchRealTime(f.code);if(api){f.name=api.name;f.price=api.estimate||api.nav}}
-      html+=`<div class="ocr-fund-item"><span>${f.name}${f.code?' ('+f.code+')':''}</span><span>${f.price>0?'¥'+f.price.toFixed(4):'无净值'}</span></div>`;
-    }
-    html+=`<div class="ocr-fund-confirm"><button class="ocr-btn-confirm" id="ocr-import">导入数据</button><button class="ocr-btn-cancel" id="ocr-skip">跳过</button></div></div>`;
-    container.innerHTML=html;
-
-    document.getElementById('ocr-import').addEventListener('click',()=>{
-      let n=0;
-      for(const f of allFunds){
-        const ex=this.pm.portfolio.find(p=>p.code===f.code);
-        if(ex){if(f.price>0)this.pm.updateFund(ex.id,{currentPrice:f.price});}
-        else{this.pm.addFund({name:f.name||'识别基金',code:f.code||'',shares:0,costPrice:f.price||0,currentPrice:f.price||0,yesterdayNav:0,_profitMode:true,shares:0,profit:0,_useAmount:true,positionAmount:0});}
-        n++;
+        if(typeof Tesseract!=='undefined'){
+          const result=await Promise.race([
+            Tesseract.recognize(file,'chi_sim+eng',{
+              logger:m=>{
+                if(m.status==='recognizing text'){
+                  const p=Math.round((m.progress||0)*100);
+                  const pe=document.getElementById('ocr-progress');
+                  if(pe)pe.innerHTML=`<div class="loading"><div class="loading-spinner"></div>OCR识别中 ${p}%...</div>`;
+                }
+              }
+            }),
+            new Promise((_,rj)=>setTimeout(()=>rj(new Error('OCR超时')),25000))
+          ]);
+          ocrText=result.data.text||'';
+        }
+      }catch(e){
+        console.warn('OCR unavailable or timeout:',e.message);
       }
-      container.innerHTML='';document.getElementById('upload-section').style.display='none';this._renderAll();this._toast(`已导入 ${n} 只基金`);
-    });
-    document.getElementById('ocr-skip').addEventListener('click',()=>{container.innerHTML=''});
-  }
 
-  async _simpleOCR(file){
-    // Use Canvas to resize image, then read pixels for text extraction
-    // This is a simplified approach - we try to read the image data
-    // and look for fund code patterns in a lightweight way
-    return new Promise((resolve,reject)=>{
-      const img=new Image();
-      const url=URL.createObjectURL(file);
-      img.onload=()=>{
-        URL.revokeObjectURL(url);
-        try{
-          // Create canvas at reduced resolution for performance
-          const maxW=1200;let w=img.width,h=img.height;
-          if(w>maxW){h*=maxW/w;w=maxW}
-          const c=document.createElement('canvas');c.width=w;c.height=h;
-          const ctx=c.getContext('2d');
-          // Draw with contrast boost
-          ctx.drawImage(img,0,0,w,h);
-          // Return empty text - rely on file name and user input
-          resolve('');
-        }catch(e){reject(e)}
-      };
-      img.onerror=reject;
-      img.src=url;
-      // Timeout
-      setTimeout(()=>{resolve('')},10000);
-    });
-  }
+      // Parse OCR text for fund codes
+      const textCodes=new Set();
+      if(ocrText){
+        const matches=[...ocrText.matchAll(/\b(\d{6})\b/g)];
+        matches.forEach(m=>textCodes.add(m[1]));
+      }
 
-  _parseTextForFunds(text){
-    // Since Tesseract.js is too slow and unreliable for Chinese OCR,
-    // we rely on the manual code entry flow as the primary method.
-    // This function does basic pattern matching on whatever text we got.
-    if(!text||text.length<5)return[];
-    const funds=[];
-    // Look for 6-digit patterns
-    const codes=[...text.matchAll(/\b(\d{6})\b/g)].map(m=>({code:m[1],idx:m.index}));
-    const foundCodes=new Set();
-    for(const {code} of codes){
-      if(!foundCodes.has(code)){foundCodes.add(code);funds.push({name:'',code,price:0})}
+      // Build UI: manual code input + optionally detected codes
+      let html='<div class="ocr-result">';
+      html+=`<h4>📋 基金代码识别</h4>`;
+
+      // Show detected codes from OCR
+      if(textCodes.size>0){
+        html+=`<p style="font-size:.8rem;color:var(--success);margin-bottom:.5rem">✅ 自动检测到基金代码: ${[...textCodes].join(', ')}</p>`;
+      } else {
+        html+=`<p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.5rem">ℹ️ 未自动识别到基金代码，请手动输入</p>`;
+      }
+
+      // Manual code input
+      html+=`<div style="display:flex;gap:.5rem;margin-bottom:.75rem">
+        <input class="form-input" id="ocr-code-input" placeholder="输入基金代码（6位）" maxlength="6" style="font-size:1rem;text-align:center;font-weight:600;letter-spacing:2px">
+        <button class="btn-primary" id="ocr-add-code" style="white-space:nowrap;padding:.75rem">添加</button>
+      </div>`;
+
+      // List of codes to import
+      const initialCodes=[...textCodes];
+      html+=`<div id="ocr-code-list">`;
+      if(initialCodes.length>0){
+        initialCodes.forEach((c,i)=>{
+          html+=`<div class="ocr-fund-item"><span id="ocr-name-${i}">代码 ${c} <span style="color:var(--text-tertiary);font-size:.7rem">查询中...</span></span><span><button class="section-action" data-idx="${i}" style="color:var(--danger);font-size:.7rem" onclick="this.closest('.ocr-fund-item').remove()">移除</button></span></div>`;
+        });
+      }else{
+        html+=`<p style="font-size:.8rem;color:var(--text-tertiary);padding:.5rem 0">还没有基金代码，请在上方输入</p>`;
+      }
+      html+=`</div>`;
+
+      // Action buttons
+      html+=`<div class="ocr-fund-confirm">
+        <button class="ocr-btn-confirm" id="ocr-import-codes">获取数据并导入</button>
+        <button class="ocr-btn-cancel" id="ocr-skip-upload">取消</button>
+      </div></div>`;
+
+      container.innerHTML=html;
+      URL.revokeObjectURL(imgUrl);
+
+      // Fetch names for detected codes
+      if(initialCodes.length>0){
+        for(let i=0;i<initialCodes.length;i++){
+          const api=await this.api.fetchRealTime(initialCodes[i]);
+          const el=document.getElementById('ocr-name-'+i);
+          if(el){
+            if(api&&api.name){
+              el.textContent=api.name+' ('+initialCodes[i]+')';
+              el.parentElement.dataset.code=initialCodes[i];
+              el.parentElement.dataset.name=api.name;
+              el.parentElement.dataset.price=api.estimate||api.nav||0;
+            } else {
+              el.textContent='代码 '+initialCodes[i]+' ❌ 获取失败';
+            }
+          }
+        }
+      }
+
+      // Add code button
+      document.getElementById('ocr-add-code').addEventListener('click',async()=>{
+        const inp=document.getElementById('ocr-code-input');
+        const code=inp.value.trim();
+        if(!/^\d{6}$/.test(code)){this._toast('请输入6位基金代码');return}
+        inp.value='';
+        const list=document.getElementById('ocr-code-list');
+        // Check duplicate
+        if([...list.querySelectorAll('.ocr-fund-item')].some(el=>el.dataset.code===code)){this._toast('代码已存在');return}
+
+        const idx=list.children.length;
+        const div=document.createElement('div');
+        div.className='ocr-fund-item';
+        div.innerHTML=`<span id="ocr-name-${idx}">代码 ${code} <span style="color:var(--text-tertiary);font-size:.7rem">查询中...</span></span><span><button class="section-action" style="color:var(--danger);font-size:.7rem">移除</button></span>`;
+        div.querySelector('button').onclick=()=>div.remove();
+        // Remove placeholder text if present
+        const ph=list.querySelector('p');
+        if(ph&&!list.querySelectorAll('.ocr-fund-item').length)ph.remove();
+        list.appendChild(div);
+
+        const api=await this.api.fetchRealTime(code);
+        const el=document.getElementById('ocr-name-'+idx);
+        if(el){
+          if(api&&api.name){
+            el.textContent=api.name+' ('+code+')';
+            div.dataset.code=code;
+            div.dataset.name=api.name;
+            div.dataset.price=api.estimate||api.nav||0;
+          } else {
+            el.textContent='代码 '+code+' ❌ 获取失败，请检查代码是否正确';
+            div.dataset.code=code;
+          }
+        }
+      });
+
+      // Import button
+      document.getElementById('ocr-import-codes').addEventListener('click',async()=>{
+        const items=[...document.querySelectorAll('#ocr-code-list .ocr-fund-item')];
+        let n=0;
+        for(const item of items){
+          const code=item.dataset.code;
+          if(!code)continue;
+          // Try to get data if not already fetched
+          let name=item.dataset.name;
+          let price=parseFloat(item.dataset.price)||0;
+          if(!name){
+            const api=await this.api.fetchRealTime(code);
+            if(api){name=api.name;price=api.estimate||api.nav||0}
+          }
+          const ex=this.pm.portfolio.find(p=>p.code===code);
+          if(ex){
+            if(price>0)this.pm.updateFund(ex.id,{currentPrice:price});
+          } else {
+            this.pm.addFund({name:name||'基金'+code,code,shares:0,costPrice:price||0,currentPrice:price||0,yesterdayNav:0,_profitMode:true,profit:0,_useAmount:true,positionAmount:0});
+          }
+          n++;
+        }
+        container.innerHTML='';
+        document.getElementById('upload-section').style.display='none';
+        this._renderAll();
+        this._toast(`已导入 ${n} 只基金，请点击编辑填写份额和盈亏`);
+      });
+
+      // Cancel button
+      document.getElementById('ocr-skip-upload').addEventListener('click',()=>{container.innerHTML=''});
     }
-    // Look for Chinese fund names
-    const names=[...text.matchAll(/([一-鿿]{2,8}(?:混合|指数|股票|债券|货币|ETF|联接|增强|精选|成长|价值|蓝筹|红利|行业|主题|回报|收益|稳健|平衡))[\s：:]*(\d{0,6})/g)];
-    for(const m of names){
-      const code=m[2]||'';
-      if(!funds.find(f=>f.name===m[1]))funds.push({name:m[1],code,price:0})
-    }
-    return funds;
   }
 
   // ---- Add/Edit Fund (NEW SIMPLIFIED FLOW) ----
