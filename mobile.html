@@ -98,6 +98,19 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
 .agent-status{font-size:.6rem;margin-top:4px;padding:2px 8px;border-radius:10px;display:inline-block}
 .agent-status.online{background:rgba(16,185,129,.15);color:var(--success)}
 .agent-status.thinking{background:rgba(245,158,11,.15);color:var(--warning)}
+.chief-card{background:linear-gradient(135deg,#FFD70022,#FFA50022);border:2px solid #FFD700;border-radius:var(--radius-sm);padding:.75rem;margin-bottom:.75rem;text-align:center}
+.chief-avatar{width:48px;height:48px;border-radius:50%;margin:0 auto .5rem;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:rgba(255,215,0,.2)}
+.chief-name{font-size:.95rem;font-weight:700}
+.chief-role{font-size:.7rem;color:var(--text-secondary)}
+.chief-stats{display:flex;justify-content:center;gap:1.5rem;margin-top:.5rem;font-size:.75rem}
+.chief-stat{text-align:center}
+.chief-stat-value{font-weight:700;color:var(--primary)}
+.chief-stat-value.gold{color:#FFD700}
+.chief-stat-label{font-size:.6rem;color:var(--text-tertiary)}
+.acc-badge{font-size:.6rem;padding:1px 6px;border-radius:8px;display:inline-block;margin-top:2px}
+.acc-badge.high{background:rgba(16,185,129,.15);color:var(--success)}
+.acc-badge.medium{background:rgba(245,158,11,.15);color:var(--warning)}
+.acc-badge.low{background:rgba(239,68,68,.15);color:var(--danger)}
 .rec-list{display:flex;flex-direction:column;gap:.5rem}
 .rec-item{background:var(--bg);border-radius:var(--radius-sm);padding:.875rem;border-left:3px solid var(--primary)}
 .rec-item.buy{border-left-color:var(--success)}
@@ -255,7 +268,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       </div>
       <div class="card">
         <div class="section-header"><span class="section-title">ℹ️ 系统信息</span></div>
-        <div class="info-grid"><div class="info-cell"><span class="info-cell-label">数据更新时间</span><span class="info-cell-value" id="update-time">--</span></div><div class="info-cell"><span class="info-cell-label">数据来源</span><span class="info-cell-value" id="data-source">天天基金API</span></div><div class="info-cell"><span class="info-cell-label">更新方式</span><span class="info-cell-value" id="update-mode">手动</span></div><div class="info-cell"><span class="info-cell-label">Agent团队</span><span class="info-cell-value"><span id="agent-count">5</span>个在线</span></div></div>
+        <div class="info-grid"><div class="info-cell"><span class="info-cell-label">数据更新时间</span><span class="info-cell-value" id="update-time">--</span></div><div class="info-cell"><span class="info-cell-label">数据来源</span><span class="info-cell-value" id="data-source">天天基金API</span></div><div class="info-cell"><span class="info-cell-label">更新方式</span><span class="info-cell-value" id="update-mode">手动</span></div><div class="info-cell"><span class="info-cell-label">Agent团队</span><span class="info-cell-value"><span id="agent-count">8</span>分析师+<span id="chief-label">决策总官</span></span></div></div>
       </div>
       <div class="card">
         <div class="section-header"><span class="section-title">📋 今日分析报告</span><button class="section-action" id="gen-report-btn">生成报告</button></div>
@@ -290,7 +303,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
     <div class="tab-content" id="tab-agents">
       <div class="card">
         <div class="section-header"><span class="section-title">🤖 Agent 决策团队</span><button class="section-action" id="run-analysis-btn">运行分析</button></div>
-        <p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.75rem">5位专业基金分析师协同工作，从不同维度评估您的持仓</p>
+        <p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.75rem">8位专业分析师 + 👑 决策总官加权共识 · 自我进化系统持续优化准确率</p>
         <div class="agent-grid" id="agent-grid"></div>
       </div>
       <div class="card">
@@ -367,7 +380,12 @@ const CONFIG = {
     { id:'risk', name:'风险控制官', role:'风控评估', emoji:'⚖️', color:'#F59E0B', strategy:'risk' },
     { id:'growth', name:'成长发现者', role:'成长分析', emoji:'🚀', color:'#10B981', strategy:'growth' },
     { id:'portfolio', name:'组合建筑师', role:'组合优化', emoji:'🏗️', color:'#EF4444', strategy:'portfolio' },
-  ]
+    { id:'macro', name:'宏观分析师', role:'宏观研判', emoji:'🌐', color:'#8B5CF6', strategy:'macro' },
+    { id:'quant', name:'量化策略师', role:'量化计算', emoji:'⚡', color:'#EC4899', strategy:'quant' },
+    { id:'sentiment', name:'情绪分析师', role:'舆情分析', emoji:'📊', color:'#14B8A6', strategy:'sentiment' },
+  ],
+  CHIEF: { id:'chief', name:'决策总官', role:'综合决策', emoji:'👑', color:'#FFD700' },
+  EVOLUTION: { learningRate:0.3, reviewWindow:20, minAccuracy:0.4, enableEvolution:true }
 };
 
 const Storage = {
@@ -600,7 +618,11 @@ class PortfolioManager {
       apiStatus.push({code:fund.code,name:fund.name,success:true,nav:rt.nav,estimate:rt.estimate,time:rt.estimateTime});
       const oldN=fund.yesterdayNav,oldP=fund.currentPrice;
       if(rt.nav>0)fund.yesterdayNav=rt.nav;
-      if(rt.estimate>0)fund.currentPrice=rt.estimate;
+      if(rt.estimate>0){
+        fund.currentPrice=rt.estimate;
+      }else if(fund.currentPrice===0&&rt.nav>0){
+        fund.currentPrice=rt.nav; // 非交易时段，使用最新净值
+      }
       fund.currentValue=fund.shares*fund.currentPrice;
       fund.todayProfit=fund.yesterdayNav>0?(fund.currentPrice-fund.yesterdayNav)*fund.shares:0;
       fund.totalProfit=fund.currentValue-fund.cost;
@@ -640,48 +662,136 @@ class PortfolioManager {
 }
 
 // ==================== AGENT TEAM ====================
+// 8 expert agents + Chief Decision Maker with weighted consensus
+// Self-evolution system: tracks accuracy, adjusts weights, improves over time
 class AgentTeam {
-  constructor(pm){this.pm=pm}
+  constructor(pm){
+    this.pm=pm;
+    this._perf=Storage.get('agentPerf',{});
+    for(const a of CONFIG.AGENTS){
+      if(!this._perf[a.id])
+        this._perf[a.id]={correct:0,total:0,accuracy:0.5,weight:1.0,recentRecs:[]};
+    }
+    this._chief=CONFIG.CHIEF;
+    this._evo=CONFIG.EVOLUTION;
+  }
+  _savePerf(){Storage.set('agentPerf',this._perf)}
+
   async runFullAnalysis(){
     const pf=this.pm.portfolio;
     if(!pf.length){this.pm.addLog('system','系统','持仓为空','info');return[]}
+    // Step 1: Review past performance (self-evolution)
+    if(this._evo.enableEvolution)this._updatePerformance();
+    // Step 2: Run all 8 agents
     const all=[],ctx=this._ctx(pf);
     for(const a of CONFIG.AGENTS){
       this.pm.addLog(a.id,a.name,`开始${a.role}...`,'info');
       await this._sleep(80);
-      const recs=this['_'+a.strategy](a,pf,ctx);
-      recs.forEach(r=>all.push({id:Date.now().toString(36)+Math.random().toString(36).slice(0,4),agentId:a.id,agentName:a.name,...r,date:new Date().toISOString()}));
-      const ac={};recs.forEach(r=>ac[r.action]=(ac[r.action]||0)+1);
-      this.pm.addLog(a.id,a.name,`完成 — ${Object.entries(ac).map(([k,v])=>`${k}:${v}`).join(', ')}`,'success');
+      try{
+        const recs=this['_'+a.strategy](a,pf,ctx);
+        recs.forEach(r=>all.push({id:Date.now().toString(36)+Math.random().toString(36).slice(0,4),agentId:a.id,agentName:a.name,...r,date:new Date().toISOString()}));
+        const ac={};recs.forEach(r=>ac[r.action]=(ac[r.action]||0)+1);
+        this.pm.addLog(a.id,a.name,`完成 — ${Object.entries(ac).map(([k,v])=>`${k}:${v}`).join(', ')}`,'success');
+      }catch(e){this.pm.addLog(a.id,a.name,`异常: ${e.message}`,'error')}
     }
-    const cs=this._consensus(all);this.pm.saveRecommendations(cs);this.pm.generateReport();
-    this.pm.addLog('system','系统',`完成，${cs.length}条建议`,'success');return cs;
+    // Step 3: Chief Decision Maker — weighted consensus
+    this.pm.addLog('chief',this._chief.name,'正在综合评估所有分析师意见...','info');
+    await this._sleep(100);
+    const decisions=this._chiefDecision(all);
+    // Step 4: Store recommendations for future performance tracking
+    for(const d of decisions){
+      for(const r of all.filter(x=>x.fundId===d.fundId||x.fundCode===d.fundCode)){
+        const ap=this._perf[r.agentId];
+        if(ap){
+          ap.recentRecs.push({fundId:r.fundId,fundCode:r.fundCode,action:r.action,confidence:r.confidence,date:new Date().toISOString()});
+          if(ap.recentRecs.length>this._evo.reviewWindow)ap.recentRecs.shift();
+        }
+      }
+    }
+    this._savePerf();
+    // Step 5: Evolution log
+    if(this._evo.enableEvolution){
+      const accs=Object.entries(this._perf).map(([id,p])=>`${id}:${(p.accuracy*100).toFixed(1)}%`);
+      this.pm.addLog('system','进化系统',`当前准确率: ${accs.join(', ')}`,'info');
+    }
+    this.pm.saveRecommendations(decisions);
+    this.pm.generateReport();
+    this.pm.addLog('system','系统',`${this._chief.name}决策完成，${decisions.length}条最终建议`,'success');
+    return decisions;
   }
   _sleep(m){return new Promise(r=>setTimeout(r,m))}
   _ctx(pf){
     if(!pf.length)return{};
-    const ret=pf.map(f=>f.totalReturn||0),avg=ret.reduce((s,v)=>s+v,0)/ret.length;
-    return{avgReturn:avg,positiveRatio:ret.filter(r=>r>0).length/ret.length,fundCount:pf.length};
+    const ret=pf.map(f=>f.totalReturn||0);
+    return{avgReturn:ret.reduce((s,v)=>s+v,0)/ret.length,positiveRatio:ret.filter(r=>r>0).length/ret.length,fundCount:pf.length,totalAsset:this.pm.getTotalAsset(),totalCost:this.pm.getTotalCost(),todayProfit:this.pm.getTodayProfit()};
   }
+
+  /* ======== AGENT STRATEGIES (8 analysts) ======== */
   _value(a,pf,ctx){return pf.map(f=>{const r=f.totalReturn||0;let act='hold',c=50,re='';if(r<-10){act='buy';c=Math.min(85,50+Math.abs(r)*2);re=`浮亏 ${r.toFixed(1)}%，估值低位，建议加仓。`}else if(r>20){act='sell';c=Math.min(80,50+r);re=`浮盈 ${r.toFixed(1)}%，建议部分止盈。`}else if(r>10){act='hold';c=65;re=`收益良好 ${r.toFixed(1)}%，建议继续持有。`}else if(r<-5){act='hold';c=60;re=`小幅浮亏 ${r.toFixed(1)}%，建议持有观察。`}else{act='hold';c=50;re=`收益 ${r.toFixed(1)}%，估值适中，持有。`}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})}
   _trend(a,pf,ctx){return pf.map(f=>{const r=f.totalReturn||0;const td=f.cost>0?((f.todayProfit||0)/f.cost)*100:0;let act='hold',c=50,re='';if(r>15&&td>0){act='hold';c=70;re=`上升趋势中 ${r.toFixed(1)}%，建议持有。`}else if(r<-8&&td<-1){act='sell';c=60;re=`下降趋势 ${r.toFixed(1)}%，建议减仓。`}else if(r>25){act='sell';c=75;re=`涨幅较大 ${r.toFixed(1)}%，注意回调风险。`}else{act='hold';c=50;re=`趋势不明，收益 ${r.toFixed(1)}%，继续观望。`}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})}
   _risk(a,pf,ctx){return pf.map(f=>{const r=f.totalReturn||0;let act='hold',c=50,re='';if(r<-15){act='sell';c=80;re=`回撤 ${Math.abs(r).toFixed(1)}%，触发风控，建议减仓。`}else if(r<-10){act='sell';c=65;re=`回撤 ${Math.abs(r).toFixed(1)}%，接近阈值，建议控制风险。`}else if(r<-5){act='hold';c=55;re=`小幅回撤 ${Math.abs(r).toFixed(1)}%，风险可控。`}else{act='hold';c=70;re=`风险正常，建议维持。`}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})}
   _growth(a,pf,ctx){return pf.map(f=>{const r=f.totalReturn||0;const td=f.todayProfit||0;let act='hold',c=50,re='';if(r>10&&td>0){act='buy';c=65;re=`表现强劲 ${r.toFixed(1)}%，建议增持。`}else if(r>5){act='hold';c=60;re=`稳定增长 ${r.toFixed(1)}%，建议持有。`}else if(r<-10){act='sell';c=55;re=`持续走弱 ${r.toFixed(1)}%，建议减仓。`}else{act='hold';c=50;re=`中性，收益 ${r.toFixed(1)}%。`}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})}
-  _portfolio(a,pf,ctx){
-    const n=pf.length;if(n<2)return pf.map(f=>({fundId:f.id,fundName:f.name,fundCode:f.code,action:'hold',confidence:50,reason:'建议分散配置2-5只基金。',strategy:a.strategy}));
-    const iw=100/n;const ta=this.pm.getTotalAsset();
-    return pf.map(f=>{let act='hold',c=50,re='';const aw=ta>0?((f.currentValue||0)/ta)*100:0,d=aw-iw;if(d>15){act='sell';c=70;re=`仓位 ${aw.toFixed(1)}%（偏离+${d.toFixed(1)}%），建议减仓。`}else if(d<-10){act='buy';c=60;re=`仓位 ${aw.toFixed(1)}%（偏离${d.toFixed(1)}%），建议加仓。`}else{act='hold';c=75;re=`仓位 ${aw.toFixed(1)}%，配置合理。`}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})
-  }
-  _consensus(all){
-    const g={};all.forEach(r=>{const k=r.fundId||r.fundCode;if(!g[k])g[k]=[];g[k].push(r)});
-    return Object.entries(g).map(([fid,recs])=>{
-      const votes={buy:0,sell:0,hold:0};let tc=0;
-      recs.forEach(r=>{votes[r.action]=(votes[r.action]||0)+1;tc+=r.confidence||50});
-      let act='hold',mv=0;for(const[a,v]of Object.entries(votes))if(v>mv){mv=v;act=a}
+  _portfolio(a,pf,ctx){const n=pf.length;if(n<2)return pf.map(f=>({fundId:f.id,fundName:f.name,fundCode:f.code,action:'hold',confidence:50,reason:'建议分散配置2-5只基金。',strategy:a.strategy}));const iw=100/n;const ta=this.pm.getTotalAsset();return pf.map(f=>{let act='hold',c=50,re='';const aw=ta>0?((f.currentValue||0)/ta)*100:0,d=aw-iw;if(d>15){act='sell';c=70;re=`仓位 ${aw.toFixed(1)}%（偏离+${d.toFixed(1)}%），建议减仓。`}else if(d<-10){act='buy';c=60;re=`仓位 ${aw.toFixed(1)}%（偏离${d.toFixed(1)}%），建议加仓。`}else{act='hold';c=75;re=`仓位 ${aw.toFixed(1)}%，配置合理。`}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})}
+  /** 宏观分析师 — 基于市场整体环境判断 */
+  _macro(a,pf,ctx){const mT=ctx.avgReturn||0;return pf.map(f=>{const r=f.totalReturn||0;let act='hold',c=50,re='';if(mT>8){if(r>15){act='hold';c=65;re=`宏观向好牛市运行，收益${r.toFixed(1)}%建议持有。`}else if(r<-5){act='buy';c=70;re=`宏观强势中回调${r.toFixed(1)}%，加仓机会。`}else{act='buy';c=60;re=`宏观环境较好，建议增持。`}}else if(mT<-5){if(r>5){act='sell';c=75;re=`宏观承压逆市盈利${r.toFixed(1)}%，建议止盈。`}else if(r<-10){act='sell';c=80;re=`宏观疲软+回撤${Math.abs(r).toFixed(1)}%，减仓避险。`}else{act='hold';c=55;re=`宏观偏弱，建议观望。`}}else{if(r<-10){act='buy';c=60;re=`震荡市中超跌${r.toFixed(1)}%，可逢低布局。`}else if(r>15){act='sell';c=65;re=`震荡市中盈利${r.toFixed(1)}%建议锁定。`}else{act='hold';c=55;re=`市场震荡，建议持有。`}}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})}
+  /** 量化策略师 — 基于统计指标和Z-score偏离度 */
+  _quant(a,pf,ctx){const ret=pf.map(f=>f.totalReturn||0);const mean=ret.length?ret.reduce((s,v)=>s+v,0)/ret.length:0;const std=ret.length?Math.sqrt(ret.reduce((s,v)=>s+(v-mean)**2,0)/ret.length)||1:1;return pf.map(f=>{const r=f.totalReturn||0;const z=std>0?(r-mean)/std:0;let act='hold',c=50,re='';if(z>1.5){act='sell';c=75;re=`量化偏离${z.toFixed(2)}σ偏高，建议减仓。`}else if(z<-1.5){act='buy';c=75;re=`量化偏离${z.toFixed(2)}σ偏低，建议加仓。`}else if(z>0.8){act='sell';c=55;re=`略高于均值(${r.toFixed(1)}%)，关注回调可能。`}else if(z<-0.8){act='buy';c=55;re=`略低于均值(${r.toFixed(1)}%)，关注反弹机会。`}else{act='hold';c=65;re=`收益${r.toFixed(1)}%，量化中性。`}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})}
+  /** 情绪分析师 — 基于市场情绪和动量 */
+  _sentiment(a,pf,ctx){return pf.map(f=>{const r=f.totalReturn||0;const tp=f.todayProfit||0;let act='hold',c=50,re='';if(tp>0&&r>20){act='sell';c=65;re=`收益高位(${r.toFixed(1)}%)且今日上涨，情绪过热建议止盈。`}else if(tp<0&&r<-10){act='buy';c=60;re=`浮亏${Math.abs(r).toFixed(1)}%且今日下跌，情绪悲观可能见底。`}else if(tp>0&&r>5){act='hold';c=60;re=`情绪积极，收益${r.toFixed(1)}%建议持有。`}else if(tp<0&&r<-5){act='hold';c=55;re=`情绪偏弱但可能过度反应，观望。`}else{act='hold';c=50;re=`情绪中性，收益${r.toFixed(1)}%。`}return{fundId:f.id,fundName:f.name,fundCode:f.code,action:act,confidence:c,reason:re,strategy:a.strategy}})}
+
+  /* ======== CHIEF DECISION MAKER ======== */
+  _chiefDecision(allRecs){
+    const groups={};
+    for(const r of allRecs){const k=r.fundId||r.fundCode;if(!groups[k])groups[k]=[];groups[k].push(r)}
+    return Object.entries(groups).map(([fid,recs])=>{
+      let buyW=0,sellW=0,holdW=0,totalW=0,totalConf=0;const reasons=[],agents=[];
+      for(const r of recs){
+        const perf=this._perf[r.agentId]||{accuracy:0.5,total:0};
+        const acc=Math.max(0.1,perf.accuracy);
+        const wt=acc*(r.confidence/100);
+        totalW+=wt;totalConf+=r.confidence;
+        if(r.action==='buy')buyW+=wt;else if(r.action==='sell')sellW+=wt;else holdW+=wt;
+        reasons.push(`${r.agentName}:${r.action}(${r.confidence}%)`);
+        if(!agents.includes(r.agentName))agents.push(r.agentName);
+      }
+      const maxW=Math.max(buyW,sellW,holdW);
+      let finalAction='hold';
+      if(maxW===buyW&&buyW>holdW*1.1)finalAction='buy';
+      else if(maxW===sellW&&sellW>holdW*1.1)finalAction='sell';
+      const avgConf=totalConf/recs.length;
+      const decisive=totalW>0?maxW/totalW:0;
+      const finalConf=Math.min(100,Math.round(avgConf*(0.4+0.6*decisive)));
       const s=recs[0];
-      return{fundId:s.fundId,fundName:s.fundName,fundCode:s.fundCode,action:act,confidence:Math.round(tc/recs.length),reason:recs.filter(r=>r.action===act).map(r=>r.reason)[0]||'综合建议。',agents:[...new Set(recs.map(r=>r.agentName))],votes:`${votes.buy}买/${votes.sell}卖/${votes.hold}持`,date:new Date().toISOString()};
-    }).sort((a,b)=>({sell:0,buy:1,hold:2}[a.action]||3)-({sell:0,buy:1,hold:2}[b.action]||3));
+      return{
+        fundId:s.fundId,fundName:s.fundName,fundCode:s.fundCode,
+        action:finalAction,confidence:finalConf,
+        reason:`${this._chief.name}综合${recs.length}位分析师意见${finalAction==='buy'?'建议买入':finalAction==='sell'?'建议卖出':'建议持有'}`,
+        details:reasons.join('; '),
+        votes:`买${Math.round(buyW)}/卖${Math.round(sellW)}/持${Math.round(holdW)}`,
+        agents,date:new Date().toISOString()
+      };
+    }).sort((a,b)=>(({sell:0,buy:1,hold:2})[a.action]||3)-(({sell:0,buy:1,hold:2})[b.action]||3));
   }
+
+  /* ======== SELF-EVOLUTION SYSTEM ======== */
+  _updatePerformance(){
+    for(const aid of Object.keys(this._perf)){
+      const perf=this._perf[aid];
+      if(!perf.recentRecs||perf.recentRecs.length<3)continue;
+      let correct=0,total=0;const pf=this.pm.portfolio;
+      for(const rec of perf.recentRecs){
+        const fund=pf.find(f=>f.id===rec.fundId||f.code===rec.fundCode);
+        if(!fund||fund.totalReturn===undefined)continue;
+        total++;if(this._isCorrect(rec.action,fund.totalReturn||0))correct++;
+      }
+      if(total>0){perf.correct=correct;perf.total=total;perf.accuracy=correct/total;perf.weight=0.3+0.7*perf.accuracy}
+    }
+    this._savePerf();
+  }
+  _isCorrect(action,actualReturn){if(action==='buy')return actualReturn>3;if(action==='sell')return actualReturn<-3;return Math.abs(actualReturn)<=3}
+  getPerfStats(){const s={};for(const[id,p]of Object.entries(this._perf))s[id]={accuracy:p.accuracy,weight:p.weight,total:p.total,correct:p.correct};return s}
+  getChiefInfo(){return this._chief}
+  getAgentCount(){return CONFIG.AGENTS.length}
 }
 
 // ==================== APP ====================
@@ -828,101 +938,119 @@ class App {
     this.pm.clearAll();this._renderAll();this._toast('已清空所有持仓');
   }
 
-  // ---- Screenshot Upload with OCR + Manual Fallback ----
+  // ---- Screenshot Upload with OCR + Enhanced Fund Parsing ----
   async _handleUpload(files){
     if(!files||!files.length)return;
     const container=document.getElementById('ocr-results');
     container.innerHTML='<div class="loading"><div class="loading-spinner"></div>准备识别...</div>';
 
-    const allFunds=[];
-
     for(const file of files){
       if(!file.type.startsWith('image/'))continue;
-
-      // Show image preview
       const imgUrl=URL.createObjectURL(file);
       container.innerHTML=`<div class="ocr-result"><h4>📸 截图预览</h4><img src="${imgUrl}" style="width:100%;border-radius:8px;max-height:300px;object-fit:contain;background:var(--bg)"></div><div class="ocr-result" id="ocr-progress"><div class="loading"><div class="loading-spinner"></div>正在识别文字...</div></div>`;
 
-      // Try Tesseract.js OCR (non-blocking)
+      // Try Tesseract.js OCR
       let ocrText='';
       try{
         if(typeof Tesseract!=='undefined'){
           const result=await Promise.race([
-            Tesseract.recognize(file,'chi_sim+eng',{
-              logger:m=>{
-                if(m.status==='recognizing text'){
-                  const p=Math.round((m.progress||0)*100);
-                  const pe=document.getElementById('ocr-progress');
-                  if(pe)pe.innerHTML=`<div class="loading"><div class="loading-spinner"></div>OCR识别中 ${p}%...</div>`;
-                }
-              }
-            }),
+            Tesseract.recognize(file,'chi_sim+eng',{logger:m=>{if(m.status==='recognizing text'){const p=Math.round((m.progress||0)*100);const pe=document.getElementById('ocr-progress');if(pe)pe.innerHTML=`<div class="loading"><div class="loading-spinner"></div>OCR识别中 ${p}%...</div>`;}}}),
             new Promise((_,rj)=>setTimeout(()=>rj(new Error('OCR超时')),25000))
           ]);
           ocrText=result.data.text||'';
         }
-      }catch(e){
-        console.warn('OCR unavailable or timeout:',e.message);
-      }
+      }catch(e){console.warn('OCR error:',e.message)}
 
-      // Parse OCR text for fund codes
+      // ---- Enhanced Parsing: fund codes + amounts + profits + shares ----
       const textCodes=new Set();
+      const fundData={}; // code -> {name, amount, profit, shares}
       if(ocrText){
-        const matches=[...ocrText.matchAll(/\b(\d{6})\b/g)];
-        matches.forEach(m=>textCodes.add(m[1]));
+        const lines=ocrText.split('\n');
+        let curCode=null;
+        for(const line of lines){
+          const t=line.trim();
+          if(!t)continue;
+          const cm=t.match(/\b(\d{6})\b/);
+          if(cm){
+            curCode=cm[1];
+            if(/^\d{6}$/.test(t.replace(/[^\d]/g,'')))continue; // skip pure-digit line
+            textCodes.add(curCode);
+            if(!fundData[curCode])fundData[curCode]={name:'',amount:0,profit:0,shares:0};
+            const nm=t.replace(/\b\d{6}\b/,'').replace(/[^·一-龥a-zA-Z]/g,'').trim();
+            if(nm.length>1)fundData[curCode].name=nm;
+            // Table format: code + multiple numbers (amount, profit, rate)
+            const nums=t.match(/([\d,]+\.?\d*)/g);
+            if(nums&&nums.length>=3&&!fundData[curCode].amount){
+              fundData[curCode].amount=parseFloat(nums[1].replace(/,/g,''));
+              fundData[curCode].profit=parseFloat(nums[2].replace(/,/g,''));
+            }
+          }else if(curCode){
+            const am=t.match(/(?:持仓金额|总金额|市值|金额)[^\d]*?¥?\s*([\d,]+\.?\d*)/);
+            if(am)fundData[curCode].amount=parseFloat(am[1].replace(/,/g,''));
+            const pm=t.match(/(?:持有收益|累计收益|收益|盈亏|利润)[^\d]*?([+-]?¥?\s*[\d,]+\.?\d*)/);
+            if(pm)fundData[curCode].profit=parseFloat(pm[1].replace(/[¥,\s]/g,''));
+            const sm=t.match(/(?:持有份额|份额)[^\d]*?([\d,]+\.?\d*)/);
+            if(sm)fundData[curCode].shares=parseFloat(sm[1].replace(/,/g,''));
+          }
+        }
+        // Fallback: code + decimal pairs anywhere in text
+        if(!textCodes.size){
+          const ac=[...ocrText.matchAll(/\b(\d{6})\b/g)].map(m=>m[1]);
+          const am=[...ocrText.matchAll(/([\d,]+\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/,/g,'')));
+          if(ac.length&&am.length)ac.forEach((c,i)=>{textCodes.add(c);if(!fundData[c])fundData[c]={name:'',amount:0,profit:0,shares:0};if(am[i])fundData[c].amount=am[i];});
+        }
       }
 
-      // Build UI: manual code input + optionally detected codes
-      let html='<div class="ocr-result">';
-      html+=`<h4>📋 基金代码识别</h4>`;
-
-      // Show detected codes from OCR
+      // Build UI: detected funds with metadata + manual input
+      let html='<div class="ocr-result"><h4>📋 识别结果</h4>';
       if(textCodes.size>0){
-        html+=`<p style="font-size:.8rem;color:var(--success);margin-bottom:.5rem">✅ 自动检测到基金代码: ${[...textCodes].join(', ')}</p>`;
-      } else {
+        html+=`<p style="font-size:.8rem;color:var(--success);margin-bottom:.5rem">✅ 检测到 ${textCodes.size} 只基金</p>`;
+      }else{
         html+=`<p style="font-size:.8rem;color:var(--text-secondary);margin-bottom:.5rem">ℹ️ 未自动识别到基金代码，请手动输入</p>`;
       }
-
-      // Manual code input
-      html+=`<div style="display:flex;gap:.5rem;margin-bottom:.75rem">
-        <input class="form-input" id="ocr-code-input" placeholder="输入基金代码（6位）" maxlength="6" style="font-size:1rem;text-align:center;font-weight:600;letter-spacing:2px">
-        <button class="btn-primary" id="ocr-add-code" style="white-space:nowrap;padding:.75rem">添加</button>
-      </div>`;
-
-      // List of codes to import
-      const initialCodes=[...textCodes];
+      html+=`<div style="display:flex;gap:.5rem;margin-bottom:.75rem"><input class="form-input" id="ocr-code-input" placeholder="输入6位基金代码" maxlength="6" style="font-size:1rem;text-align:center;font-weight:600;letter-spacing:2px"><button class="btn-primary" id="ocr-add-code" style="white-space:nowrap;padding:.75rem">添加</button></div>`;
       html+=`<div id="ocr-code-list">`;
-      if(initialCodes.length>0){
+      const initialCodes=[...textCodes];
+      if(initialCodes.length){
         initialCodes.forEach((c,i)=>{
-          html+=`<div class="ocr-fund-item"><span id="ocr-name-${i}">代码 ${c} <span style="color:var(--text-tertiary);font-size:.7rem">查询中...</span></span><span><button class="section-action" data-idx="${i}" style="color:var(--danger);font-size:.7rem" onclick="this.closest('.ocr-fund-item').remove()">移除</button></span></div>`;
+          const fd=fundData[c]||{};const dets=[];
+          if(fd.amount>0)dets.push(`💰¥${fd.amount.toFixed(2)}`);
+          if(fd.profit!==0)dets.push(`${fd.profit>=0?'📈+':'📉'}¥${Math.abs(fd.profit).toFixed(2)}`);
+          if(fd.shares>0)dets.push(`📦${fd.shares.toFixed(2)}份`);
+          html+=`<div class="ocr-fund-item"><span id="ocr-name-${i}">代码 ${c} <span style="color:var(--text-tertiary);font-size:.7rem">查询中...</span></span><span style="font-size:.65rem;color:var(--text-secondary);margin:0 .5rem" id="ocr-data-${i}">${dets.length?dets.join(' '):''}</span><span><button class="section-action" style="color:var(--danger);font-size:.7rem">移除</button></span></div>`;
         });
       }else{
         html+=`<p style="font-size:.8rem;color:var(--text-tertiary);padding:.5rem 0">还没有基金代码，请在上方输入</p>`;
       }
-      html+=`</div>`;
-
-      // Action buttons
-      html+=`<div class="ocr-fund-confirm">
-        <button class="ocr-btn-confirm" id="ocr-import-codes">获取数据并导入</button>
-        <button class="ocr-btn-cancel" id="ocr-skip-upload">取消</button>
-      </div></div>`;
-
+      html+=`</div><div class="ocr-fund-confirm"><button class="ocr-btn-confirm" id="ocr-import-codes">获取数据并导入</button><button class="ocr-btn-cancel" id="ocr-skip-upload">取消</button></div></div>`;
       container.innerHTML=html;
       URL.revokeObjectURL(imgUrl);
 
-      // Fetch names for detected codes
-      if(initialCodes.length>0){
+      // Fetch names + enrich with OCR-detected metadata
+      if(initialCodes.length){
         for(let i=0;i<initialCodes.length;i++){
-          const api=await this.api.fetchRealTime(initialCodes[i]);
+          const c=initialCodes[i],fd=fundData[c]||{};
+          const api=await this.api.fetchRealTime(c);
           const el=document.getElementById('ocr-name-'+i);
           if(el){
-            if(api&&api.name){
-              el.textContent=api.name+' ('+initialCodes[i]+')';
-              el.parentElement.dataset.code=initialCodes[i];
-              el.parentElement.dataset.name=api.name;
-              el.parentElement.dataset.price=api.estimate||api.nav||0;
-            } else {
-              el.textContent='代码 '+initialCodes[i]+' ❌ 获取失败';
+            const name=api&&api.name?api.name:(fd.name||'');
+            const price=api&&(api.estimate||api.nav)||0;
+            if(name){
+              el.innerHTML=`${name} <span style="font-size:.65rem;color:var(--text-tertiary)">${c}</span>`;
+              el.parentElement.dataset.code=c;el.parentElement.dataset.name=name;el.parentElement.dataset.price=price;
+            }else{el.textContent='代码 '+c+' ❌ 获取失败';el.parentElement.dataset.code=c}
+            // Attach OCR-detected financial data
+            if(fd.amount>0)el.parentElement.dataset.amount=fd.amount;
+            if(fd.profit!==0)el.parentElement.dataset.profit=fd.profit;
+            if(fd.shares>0)el.parentElement.dataset.shares=fd.shares;
+            // Update data display
+            const de=document.getElementById('ocr-data-'+i);
+            if(de){
+              const dets=[];const amt=parseFloat(el.parentElement.dataset.amount)||0;const pft=parseFloat(el.parentElement.dataset.profit)||0;const shr=parseFloat(el.parentElement.dataset.shares)||0;
+              if(amt>0)dets.push(`金额¥${amt.toFixed(2)}`);
+              if(pft!==0)dets.push(`收益${pft>=0?'+':''}¥${pft.toFixed(2)}`);
+              if(shr>0)dets.push(`份额${shr.toFixed(2)}`);
+              de.textContent=dets.length?'📊 '+dets.join(' | '):'';
             }
           }
         }
@@ -930,65 +1058,48 @@ class App {
 
       // Add code button
       document.getElementById('ocr-add-code').addEventListener('click',async()=>{
-        const inp=document.getElementById('ocr-code-input');
-        const code=inp.value.trim();
+        const inp=document.getElementById('ocr-code-input');const code=inp.value.trim();
         if(!/^\d{6}$/.test(code)){this._toast('请输入6位基金代码');return}
-        inp.value='';
-        const list=document.getElementById('ocr-code-list');
-        // Check duplicate
+        inp.value='';const list=document.getElementById('ocr-code-list');
         if([...list.querySelectorAll('.ocr-fund-item')].some(el=>el.dataset.code===code)){this._toast('代码已存在');return}
-
         const idx=list.children.length;
-        const div=document.createElement('div');
-        div.className='ocr-fund-item';
-        div.innerHTML=`<span id="ocr-name-${idx}">代码 ${code} <span style="color:var(--text-tertiary);font-size:.7rem">查询中...</span></span><span><button class="section-action" style="color:var(--danger);font-size:.7rem">移除</button></span>`;
+        const div=document.createElement('div');div.className='ocr-fund-item';
+        div.innerHTML=`<span id="ocr-name-${idx}">代码 ${code} <span style="color:var(--text-tertiary);font-size:.7rem">查询中...</span></span><span style="font-size:.65rem;color:var(--text-secondary);margin:0 .5rem" id="ocr-data-${idx}"></span><span><button class="section-action" style="color:var(--danger);font-size:.7rem">移除</button></span>`;
         div.querySelector('button').onclick=()=>div.remove();
-        // Remove placeholder text if present
-        const ph=list.querySelector('p');
-        if(ph&&!list.querySelectorAll('.ocr-fund-item').length)ph.remove();
+        const ph=list.querySelector('p');if(ph&&!list.querySelectorAll('.ocr-fund-item').length)ph.remove();
         list.appendChild(div);
-
         const api=await this.api.fetchRealTime(code);
         const el=document.getElementById('ocr-name-'+idx);
-        if(el){
-          if(api&&api.name){
-            el.textContent=api.name+' ('+code+')';
-            div.dataset.code=code;
-            div.dataset.name=api.name;
-            div.dataset.price=api.estimate||api.nav||0;
-          } else {
-            el.textContent='代码 '+code+' ❌ 获取失败，请检查代码是否正确';
-            div.dataset.code=code;
-          }
-        }
+        if(el&&api&&api.name){
+          el.innerHTML=`${api.name} <span style="font-size:.65rem;color:var(--text-tertiary)">${code}</span>`;
+          div.dataset.code=code;div.dataset.name=api.name;div.dataset.price=api.estimate||api.nav||0;
+        }else if(el){el.textContent='代码 '+code+' ❌ 获取失败';div.dataset.code=code}
       });
 
-      // Import button
+      // Import button — uses OCR-detected amounts/profits when available
       document.getElementById('ocr-import-codes').addEventListener('click',async()=>{
         const items=[...document.querySelectorAll('#ocr-code-list .ocr-fund-item')];
         let n=0;
         for(const item of items){
-          const code=item.dataset.code;
-          if(!code)continue;
-          // Try to get data if not already fetched
-          let name=item.dataset.name;
-          let price=parseFloat(item.dataset.price)||0;
-          if(!name){
-            const api=await this.api.fetchRealTime(code);
-            if(api){name=api.name;price=api.estimate||api.nav||0}
-          }
+          const code=item.dataset.code;if(!code)continue;
+          let name=item.dataset.name;let price=parseFloat(item.dataset.price)||0;
+          if(!name){const api=await this.api.fetchRealTime(code);if(api){name=api.name;price=api.estimate||api.nav||0}}
+          const amount=parseFloat(item.dataset.amount)||0;
+          const profit=parseFloat(item.dataset.profit)||0;
+          const shares=parseFloat(item.dataset.shares)||0;
           const ex=this.pm.portfolio.find(p=>p.code===code);
           if(ex){
             if(price>0)this.pm.updateFund(ex.id,{currentPrice:price});
-          } else {
-            this.pm.addFund({name:name||'基金'+code,code,shares:0,costPrice:price||0,currentPrice:price||0,yesterdayNav:0,_profitMode:true,profit:0,_useAmount:true,positionAmount:0});
+            this._toast(`已更新 ${name||code}`);
+          }else{
+            this.pm.addFund({name:name||'基金'+code,code,shares:shares||0,costPrice:price||0,currentPrice:price||0,yesterdayNav:0,_profitMode:true,profit:profit||0,_useAmount:!shares,positionAmount:amount||0});
           }
           n++;
         }
         container.innerHTML='';
         document.getElementById('upload-section').style.display='none';
         this._renderAll();
-        this._toast(`已导入 ${n} 只基金，请点击编辑填写份额和盈亏`);
+        this._toast(`已导入 ${n} 只基金，请检查持仓数据`);
       });
 
       // Cancel button
@@ -1282,11 +1393,26 @@ class App {
     list.querySelectorAll('.fund-item').forEach(item=>{item.addEventListener('click',()=>this._showAddFund(item.dataset.id))});
   }
   _renderAgents(){this._renderAgentGrid();this._renderRecs();this._renderLog()}
-  _renderAgentGrid(){document.getElementById('agent-grid').innerHTML=CONFIG.AGENTS.map(a=>`<div class="agent-card active" data-agent="${a.id}"><div class="agent-avatar" style="background:${a.color}22;color:${a.color}">${a.emoji}</div><div class="agent-name">${a.name}</div><div class="agent-role">${a.role}</div><span class="agent-status online">在线</span></div>`).join('')}
+  _renderAgentGrid(){
+    const chief=this.agents?this.agents.getChiefInfo():CONFIG.CHIEF;
+    const perf=this.agents?this.agents.getPerfStats():{};
+    let html=`<div class="chief-card"><div class="chief-avatar">${chief.emoji}</div><div class="chief-name">${chief.name}</div><div class="chief-role">${chief.role} · 加权共识决策</div><div class="chief-stats"><div class="chief-stat"><div class="chief-stat-value gold">${CONFIG.AGENTS.length}</div><div class="chief-stat-label">分析师团队</div></div><div class="chief-stat"><div class="chief-stat-value" id="chief-avg-acc">--</div><div class="chief-stat-label">平均准确率</div></div></div></div>`;
+    html+=CONFIG.AGENTS.map(a=>{
+      const p=perf[a.id]||{};const acc=p.accuracy?p.accuracy*100:0;
+      const accCls=acc>=60?'high':acc>=40?'medium':'low';
+      return `<div class="agent-card active" data-agent="${a.id}"><div class="agent-avatar" style="background:${a.color}22;color:${a.color}">${a.emoji}</div><div class="agent-name">${a.name}</div><div class="agent-role">${a.role}</div><span class="agent-status online">在线</span>${p.total>0?`<span class="acc-badge ${accCls}">${acc.toFixed(1)}%</span>`:''}${p.total>0?`<div style="font-size:.55rem;color:var(--text-tertiary);margin-top:2px">${p.correct}/${p.total}次正确</div>`:''}</div>`;
+    }).join('');
+    document.getElementById('agent-grid').innerHTML=html;
+    const accs=Object.values(perf).filter(p=>p.total>0).map(p=>p.accuracy);
+    const avgAcc=accs.length?accs.reduce((s,v)=>s+v,0)/accs.length*100:0;
+    const el=document.getElementById('chief-avg-acc');
+    if(el)el.textContent=avgAcc>0?avgAcc.toFixed(1)+'%':'--';
+  }
   _renderRecs(){
     const list=document.getElementById('recommend-list'),recs=this.pm.recommendations;
     if(!recs||!recs.length){list.innerHTML='<div class="empty-state"><p>暂无操作建议</p><p style="font-size:.75rem">点击「运行分析」生成</p></div>';return}
-    list.innerHTML=recs.map(r=>{const l={buy:'买入',sell:'卖出',hold:'持有'}[r.action]||'持有';return`<div class="rec-item ${r.action}"><div class="rec-header"><div><div class="rec-name">${r.fundName||'未知'}</div><div style="font-size:.7rem;color:var(--text-tertiary)">信心指数 <span class="rec-confidence ${r.confidence>=70?'high':r.confidence>=50?'medium':'low'}">${r.confidence||0}%</span></div></div><span class="rec-tag ${r.action}">${l}</span></div><div class="rec-reason">${r.reason}</div><div style="font-size:.7rem;color:var(--text-tertiary);margin-top:.35rem">👥 ${r.agents?r.agents.join('、'):'综合'} · ${r.votes||''}</div></div>`}).join('');
+    list.innerHTML='<div style="font-size:.75rem;margin-bottom:.5rem;color:var(--text-tertiary)">🎯 决策总官最终建议（加权共识）</div>'+
+      recs.map(r=>{const l={buy:'买入',sell:'卖出',hold:'持有'}[r.action]||'持有';return`<div class="rec-item ${r.action}"><div class="rec-header"><div><div class="rec-name">${r.fundName||'未知'}</div><div style="font-size:.7rem;color:var(--text-tertiary)">决策信心 <span class="rec-confidence ${r.confidence>=70?'high':r.confidence>=50?'medium':'low'}">${r.confidence||0}%</span></div></div><span class="rec-tag ${r.action}">${l}</span></div><div class="rec-reason">${r.reason}</div><div style="font-size:.7rem;color:var(--text-tertiary);margin-top:.35rem">👥 ${r.agents?r.agents.join('、'):'综合'} · ${r.votes||''}${r.details?`<br><span style="font-size:.65rem">📋 ${r.details}</span>`:''}</div></div>`}).join('');
   }
   _renderLog(){
     const el=document.getElementById('analysis-log'),logs=this.pm.analysisLog;
