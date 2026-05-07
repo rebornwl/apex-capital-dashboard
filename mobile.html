@@ -268,7 +268,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:1
       </div>
       <div class="card">
         <div class="section-header"><span class="section-title">ℹ️ 系统信息</span></div>
-        <div class="info-grid"><div class="info-cell"><span class="info-cell-label">数据更新时间</span><span class="info-cell-value" id="update-time">--</span></div><div class="info-cell"><span class="info-cell-label">数据来源</span><span class="info-cell-value" id="data-source">天天基金API</span></div><div class="info-cell"><span class="info-cell-label">更新方式</span><span class="info-cell-value" id="update-mode">手动</span></div><div class="info-cell"><span class="info-cell-label">Agent团队</span><span class="info-cell-value"><span id="agent-count">8</span>分析师+<span id="chief-label">决策总官</span></span></div></div>
+        <div class="info-grid"><div class="info-cell"><span class="info-cell-label">数据更新时间</span><span class="info-cell-value" id="update-time">--</span></div><div class="info-cell"><span class="info-cell-label">数据来源</span><span class="info-cell-value" id="data-source">天天基金API</span></div><div class="info-cell"><span class="info-cell-label">上次分析</span><span class="info-cell-value" id="last-analysis">--</span></div><div class="info-cell"><span class="info-cell-label">Agent团队</span><span class="info-cell-value"><span id="agent-count">8</span>分析师+<span id="chief-label">决策总官</span></span></div></div>
       </div>
       <div class="card">
         <div class="section-header"><span class="section-title">📋 今日分析报告</span><button class="section-action" id="gen-report-btn">生成报告</button></div>
@@ -884,7 +884,8 @@ class AgentTeam {
 class App {
   constructor(){
     this.api=new FundAPI();this.pm=new PortfolioManager();
-    this.agents=new AgentTeam(this.pm);this.updateTimer=null;this.init();
+    this.agents=new AgentTeam(this.pm);this.updateTimer=null;this.analysisTimer=null;
+    this._lastAnalysis=Storage.get('lastAnalysis',null);this._analyzing=false;this.init();
   }
   init(){this._applyTheme();this._bindEvents();this._initScheduler();this._renderAll();this._welcome()}
 
@@ -959,19 +960,35 @@ class App {
 
   _initScheduler(){
     if(this.updateTimer){clearInterval(this.updateTimer);this.updateTimer=null}
-    const f=this.pm.settings.updateFreq;if(f==='manual')return;
-    if(f==='auto'){this.updateTimer=setInterval(()=>{const n=new Date();if(n.getDay()>=1&&n.getDay()<=5&&n.getHours()===14&&n.getMinutes()>=40&&n.getMinutes()<=50)this._refresh(true)},1800000)}
-    else{const iv=CONFIG.REFRESH_INTERVALS[f];if(iv)this.updateTimer=setInterval(()=>this._refresh(true),iv)}
+    if(this.analysisTimer){clearInterval(this.analysisTimer);this.analysisTimer=null}
+    // Data refresh timer
+    const f=this.pm.settings.updateFreq;if(f!=='manual'){
+      if(f==='auto'){this.updateTimer=setInterval(()=>{const n=new Date();if(n.getDay()>=1&&n.getDay()<=5&&n.getHours()===14&&n.getMinutes()>=40&&n.getMinutes()<=50)this._refresh(true)},1800000)}
+      else{const iv=CONFIG.REFRESH_INTERVALS[f];if(iv)this.updateTimer=setInterval(()=>this._refresh(true),iv)}
+    }
+    // Analysis scheduler — separate from data refresh
+    const af=this.pm.settings.analysisFreq;if(af==='daily'){
+      this.analysisTimer=setInterval(()=>{this._maybeAutoAnalyze('daily')},600000); // check every 10min
+    }else if(af==='weekly'){
+      this.analysisTimer=setInterval(()=>{this._maybeAutoAnalyze('weekly')},3600000); // check every hour
+    }
+    // Run analysis on startup if overdue
+    setTimeout(()=>this._maybeAutoAnalyze(af),5000);
   }
 
   async _refresh(silent=false){
     if(!silent)this._toast('正在刷新...');
     const btn=document.getElementById('refresh-btn');btn.style.opacity='.5';btn.style.pointerEvents='none';
+    let changed=0;
     try{
-      if(this.pm.settings.apiEnabled){const c=await this.pm.syncWithAPI(this.api);if(!silent)this._toast(`已更新 ${c} 只基金`)}
+      if(this.pm.settings.apiEnabled){changed=await this.pm.syncWithAPI(this.api);if(!silent)this._toast(`已更新 ${changed} 只基金`)}
       else{this.pm.portfolio.forEach(f=>{const ch=(Math.random()-.5)*.01;f.currentPrice*=(1+ch);f.currentValue=f.shares*f.currentPrice;f.todayProfit=f.yesterdayNav>0?(f.currentPrice-f.yesterdayNav)*f.shares:0;f.totalProfit=f.currentValue-f.cost;f.totalReturn=f.cost>0?((f.currentValue-f.cost)/f.cost)*100:0});this.pm.save();if(!silent)this._toast('已更新（离线）')}
     }catch(e){if(!silent)this._toast('刷新失败')}
     btn.style.opacity='1';btn.style.pointerEvents='auto';this._renderAll();
+    // Auto-trigger analysis when prices changed meaningfully
+    if(changed>0&&this.pm.portfolio.length&&!this._analyzing){
+      this._autoAnalyze('dataChange');
+    }
   }
 
   // ---- API Monitor ----
@@ -1428,10 +1445,55 @@ class App {
   // ---- Agent Analysis ----
   async _runAnalysis(){
     if(!this.pm.portfolio.length){this._toast('请先添加基金');return}
+    if(this._analyzing){this._toast('分析已在进行中');return}
+    this._analyzing=true;
     document.querySelectorAll('.agent-card').forEach(c=>{c.querySelector('.agent-status').textContent='分析中...';c.querySelector('.agent-status').className='agent-status thinking'});
     this._toast('分析中...');const btn=document.getElementById('run-analysis-btn');btn.disabled=true;btn.textContent='分析中...';
-    try{await this.agents.runFullAnalysis();this._renderAll();this._toast('分析完成')}catch(e){this._toast('分析失败')}
-    btn.disabled=false;btn.textContent='运行分析';
+    try{await this.agents.runFullAnalysis();this._lastAnalysis=new Date().toISOString();Storage.set('lastAnalysis',this._lastAnalysis);this._renderAll();this._toast('分析完成')}catch(e){this._toast('分析失败')}
+    btn.disabled=false;btn.textContent='运行分析';this._analyzing=false;
+  }
+
+  /** Auto-analyze with smart scheduling — avoids duplicate work */
+  async _autoAnalyze(trigger){
+    if(this._analyzing||!this.pm.portfolio.length)return;
+    const now=Date.now(),last=this._lastAnalysis?new Date(this._lastAnalysis).getTime():0;
+    const minInterval={dataChange:900000,daily:21600000,weekly:86400000}; // 15min / 6h / 24h minimum
+    const iv=minInterval[trigger]||900000;
+    if(now-last<iv)return;
+    // Only analyze during or near trading hours for dataChange triggers
+    if(trigger==='dataChange'){
+      const d=new Date(),h=d.getHours(),wd=d.getDay();
+      const inTrading=wd>=1&&wd<=5&&((h>=9&&h<15)||(h===15&&d.getMinutes()<35));
+      if(!inTrading)return;
+    }
+    this._analyzing=true;
+    this._updateInfo();
+    try{
+      this.pm.addLog('system','系统',`自动分析触发(${trigger})，Agent团队开始评估...`,'info');
+      await this.agents.runFullAnalysis();
+      this._lastAnalysis=new Date().toISOString();
+      Storage.set('lastAnalysis',this._lastAnalysis);
+      this.pm.addLog('system','系统','自动分析完成，建议已更新','success');
+      this._renderAll();
+    }catch(e){/* silent fail for auto analysis */}
+    this._analyzing=false;
+    this._updateInfo();
+  }
+
+  /** Periodic check — triggers analysis based on configured frequency */
+  _maybeAutoAnalyze(mode){
+    if(!mode||mode==='manual'||!this.pm.portfolio.length||this._analyzing)return;
+    const now=new Date(),wd=now.getDay(),h=now.getHours(),m=now.getMinutes();
+    const isTradingDay=wd>=1&&wd<=5;
+    if(!isTradingDay)return;
+    // Daily: run once around 14:50-15:00 (market close)
+    if(mode==='daily'){
+      if(h===14&&m>=50||h===15&&m<5){this._autoAnalyze('daily')}
+    }
+    // Weekly: run Monday after market close
+    else if(mode==='weekly'){
+      if(wd===1&&h===15&&m<10){this._autoAnalyze('weekly')}
+    }
   }
 
   _welcome(){
@@ -1470,8 +1532,18 @@ class App {
     document.getElementById('data-source').textContent=this.pm.settings.apiEnabled?'天天基金API':'离线数据';
     document.getElementById('update-mode').textContent=({manual:'仅手动','30min':'每30分钟','1h':'每小时','2h':'每2小时',auto:'交易日14:45'})[this.pm.settings.updateFreq]||'手动';
     const n=new Date(),d=n.getDay(),h=n.getHours(),m=n.getMinutes(),wkd=d>=1&&d<=5,tr=(h>=9&&h<15)||(h===15&&m<30);
-    document.getElementById('status-dot').className='status-dot '+(wkd&&tr?'on':'off');
-    document.getElementById('status-text').textContent=wkd&&tr?'交易中':'休市中';
+    if(this._analyzing){
+      document.getElementById('status-dot').className='status-dot on';
+      document.getElementById('status-text').textContent='分析中...';
+    } else {
+      document.getElementById('status-dot').className='status-dot '+(wkd&&tr?'on':'off');
+      document.getElementById('status-text').textContent=wkd&&tr?'交易中':'休市中';
+    }
+    // Show last analysis time
+    const laEl=document.getElementById('last-analysis');
+    if(laEl&&this._lastAnalysis){
+      laEl.textContent=new Date(this._lastAnalysis).toLocaleString('zh-CN');
+    }
   }
   _renderPortfolio(){
     const list=document.getElementById('portfolio-list');
