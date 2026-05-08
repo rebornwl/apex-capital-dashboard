@@ -1,43 +1,43 @@
 {
-  "update_time": "2026-05-08 08:02:43",
-  "update_time_short": "05-08 08:02",
+  "update_time": "2026-05-08 08:26:09",
+  "update_time_short": "05-08 08:26",
   "is_trading_day": true,
   "trading_status": "已收盘",
   "source": "github-actions",
-  "run_id": "25544442051",
-  "cache_buster": "20260508080243_25544442051",
+  "run_id": "25545415872",
+  "cache_buster": "20260508082609_25545415872",
   "summary": {
-    "total_value": 275950.1,
-    "normal_value": 263199.05,
-    "pension_value": 12751.05,
+    "total_value": 275933.56,
+    "normal_value": 263182.55,
+    "pension_value": 12751.01,
     "total_cost": 266470.24,
-    "total_hold_pnl": 9479.86,
-    "total_hold_pnl_pct": 3.56,
-    "today_pnl": -1023.72,
-    "normal_today_pnl": -1002.13,
-    "pension_today_pnl": -21.59,
+    "total_hold_pnl": 9463.32,
+    "total_hold_pnl_pct": 3.55,
+    "today_pnl": -1040.26,
+    "normal_today_pnl": -1018.63,
+    "pension_today_pnl": -21.63,
     "fund_count": 25,
     "normal_count": 20,
     "pension_count": 5
   },
   "type_distribution": {
     "qdii": {
-      "value": 116211.73,
+      "value": 116186.42,
       "count": 8,
       "pct": 42.1
     },
     "mix": {
-      "value": 87476.56,
+      "value": 87483.8,
       "count": 7,
       "pct": 31.7
     },
     "index": {
-      "value": 28159.76,
+      "value": 28161.62,
       "count": 3,
       "pct": 10.2
     },
     "stock": {
-      "value": 22689.4,
+      "value": 22689.08,
       "count": 2,
       "pct": 8.2
     },
@@ -73,16 +73,16 @@
       "name": "汇添富恒生科技ETF联接发起式(QDII)C",
       "type": "QDII指数",
       "tag": "qdii",
-      "nav": 0.8007,
+      "nav": 0.7999,
       "nav_date": "2026-05-08",
-      "today_pct": -0.24,
-      "market_value": 25255.37,
-      "today_pnl": -60.76,
-      "hold_pnl": -6011.27,
-      "hold_pnl_pct": -19.23,
+      "today_pct": -0.34,
+      "market_value": 25230.06,
+      "today_pnl": -86.07,
+      "hold_pnl": -6036.58,
+      "hold_pnl_pct": -19.31,
       "profit": "down",
       "warnings": [
-        "CRO预警:亏损-19.2%"
+        "CRO预警:亏损-19.3%"
       ]
     },
     {
@@ -105,13 +105,13 @@
       "name": "华泰柏瑞沪深300ETF联接A",
       "type": "指数型",
       "tag": "index",
-      "nav": 1.2145,
+      "nav": 1.2146,
       "nav_date": "2026-05-08",
-      "today_pct": -0.58,
-      "market_value": 18867.49,
-      "today_pnl": -110.07,
-      "hold_pnl": -1132.51,
-      "hold_pnl_pct": -5.66,
+      "today_pct": -0.57,
+      "market_value": 18869.39,
+      "today_pnl": -108.17,
+      "hold_pnl": -1130.61,
+      "hold_pnl_pct": -5.65,
       "profit": "down",
       "warnings": []
     },
@@ -120,13 +120,13 @@
       "name": "易方达竞争优势企业混合C",
       "type": "主动混合",
       "tag": "mix",
-      "nav": 0.6745,
+      "nav": 0.6748,
       "nav_date": "2026-05-08",
-      "today_pct": -1.81,
-      "market_value": 17768.23,
-      "today_pnl": -327.53,
-      "hold_pnl": -1658.26,
-      "hold_pnl_pct": -8.54,
+      "today_pct": -1.77,
+      "market_value": 17775.47,
+      "today_pnl": -320.29,
+      "hold_pnl": -1651.02,
+      "hold_pnl_pct": -8.5,
       "profit": "down",
       "warnings": []
     },
@@ -321,11 +321,11 @@
       "tag": "stock",
       "nav": 0.7359,
       "nav_date": "2026-05-08",
-      "today_pct": 0.99,
-      "market_value": 3225.92,
-      "today_pnl": 31.62,
-      "hold_pnl": 44.39,
-      "hold_pnl_pct": 1.4,
+      "today_pct": 0.98,
+      "market_value": 3225.6,
+      "today_pnl": 31.3,
+      "hold_pnl": 44.07,
+      "hold_pnl_pct": 1.39,
       "profit": "up",
       "warnings": []
     },
@@ -432,13 +432,13 @@
       "name": "华夏中证A500ETF联接Y",
       "type": "指数型Y",
       "tag": "index",
-      "nav": 1.3006,
+      "nav": 1.3005,
       "nav_date": "2026-05-08",
-      "today_pct": -0.44,
-      "market_value": 458.76,
-      "today_pnl": -2.03,
-      "hold_pnl": -35.24,
-      "hold_pnl_pct": -7.13,
+      "today_pct": -0.45,
+      "market_value": 458.72,
+      "today_pnl": -2.07,
+      "hold_pnl": -35.28,
+      "hold_pnl_pct": -7.14,
       "profit": "down",
       "warnings": [],
       "is_pension": true
@@ -481,8 +481,8 @@
       {
         "code": "013128",
         "name": "汇添富恒生科技ETF联接发起式(QDII)C",
-        "pct": -19.23,
-        "pnl": -6011.27
+        "pct": -19.31,
+        "pnl": -6036.58
       },
       {
         "code": "019888",
@@ -499,8 +499,8 @@
       {
         "code": "010849",
         "name": "易方达竞争优势企业混合C",
-        "pct": -8.54,
-        "pnl": -1658.26
+        "pct": -8.5,
+        "pnl": -1651.02
       },
       {
         "code": "016453",
@@ -510,7 +510,7 @@
       }
     ]
   },
-  "report_text": "📊 巅峰资本 · 基金持仓日报（云端自动生成）\n⏰ 2026-05-08 08:02:43 | 已收盘\n\n💰 总资产：¥275,950.10\n   普通账户：¥263,199.05  |  养老金：¥12,751.05\n📈 今日盈亏：¥-1,023.72\n📊 持有收益：+¥9,479.86 (+3.56%)\n🏆 今日最强：易方达全球成长精选混合(QDII)人民币A (+62.78%)\n⚠ 今日最弱：汇添富恒生科技ETF联接发起式(QDII)C (-19.23%)\n\n🚨 需关注亏损仓位：\n   • 汇添富恒生科技ETF联接发起式(QDII)C(013128) -19.23% ¥25,255\n   • 中欧周期优选混合发起A(019888) -12.86% ¥8,662\n   • 易方达中证人工智能主题ETF联接C(012734) -11.66% ¥8,834\n   • 易方达竞争优势企业混合C(010849) -8.54% ¥17,768\n   • 南方纳斯达克100指数发起(QDII)C(016453) -6.34% ¥1,124\n   • 华泰柏瑞沪深300ETF联接A(460300) -5.66% ¥18,867",
+  "report_text": "📊 巅峰资本 · 基金持仓日报（云端自动生成）\n⏰ 2026-05-08 08:26:09 | 已收盘\n\n💰 总资产：¥275,933.56\n   普通账户：¥263,182.55  |  养老金：¥12,751.01\n📈 今日盈亏：¥-1,040.26\n📊 持有收益：+¥9,463.32 (+3.55%)\n🏆 今日最强：易方达全球成长精选混合(QDII)人民币A (+62.78%)\n⚠ 今日最弱：汇添富恒生科技ETF联接发起式(QDII)C (-19.31%)\n\n🚨 需关注亏损仓位：\n   • 汇添富恒生科技ETF联接发起式(QDII)C(013128) -19.31% ¥25,230\n   • 中欧周期优选混合发起A(019888) -12.86% ¥8,662\n   • 易方达中证人工智能主题ETF联接C(012734) -11.66% ¥8,834\n   • 易方达竞争优势企业混合C(010849) -8.50% ¥17,775\n   • 南方纳斯达克100指数发起(QDII)C(016453) -6.34% ¥1,124\n   • 华泰柏瑞沪深300ETF联接A(460300) -5.65% ¥18,869",
   "data_stale": {
     "level": "red",
     "days": 20,
