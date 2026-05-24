@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>巅峰资本 · 持仓监控</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body>
+    <div id="app">
+        <div id="login-page" class="page active">
+            <div class="login-container">
+                <div class="logo">
+                    <svg viewBox="0 0 100 100" width="80" height="80">
+                        <defs>
+                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <circle cx="50" cy="50" r="45" fill="url(#grad1)"/>
+                        <path d="M30 55 L45 40 L60 50 L70 35" stroke="white" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h1>巅峰资本</h1>
+                <p class="subtitle">智能基金管理系统</p>
+                <div class="input-group">
+                    <input type="password" id="password-input" placeholder="请输入访问密码">
+                    <button id="login-btn" class="btn-primary">进入系统</button>
+                </div>
+                <p id="error-msg" class="error-msg"></p>
+            </div>
+        </div>
+
+        <div id="main-page" class="page">
+            <header class="app-header">
+                <div class="header-content">
+                    <div class="header-title">
+                        <h2>巅峰资本</h2>
+                        <span class="status-dot"></span>
+                    </div>
+                    <button id="refresh-btn" class="icon-btn">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6"/>
+                            <path d="M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <main class="app-content">
+                <section class="info-card card">
+                    <h3 class="card-title">📱 访问信息</h3>
+                    <div class="info-list">
+                        <div class="info-item">
+                            <span class="info-label">🌐 永久访问地址</span>
+                            <span class="info-value">rebornwl.github.io/apex-capital-dashboard</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">📅 数据更新时间</span>
+                            <span class="info-value" id="update-time">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">📊 交易状态</span>
+                            <span class="info-value" id="trade-status">--</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🔄 更新方式</span>
+                            <span class="info-value">自动（交易日14:45）</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">🤖 智能体团队</span>
+                            <span class="info-value">10个在线</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="asset-card card">
+                    <h3 class="card-title">💰 总资产概览</h3>
+                    <div class="asset-total">
+                        <span class="asset-label">当前市值</span>
+                        <span class="asset-value" id="total-asset">¥0.00</span>
+                    </div>
+                    <div class="asset-stats">
+                        <div class="stat-item">
+                            <span class="stat-label">今日盈亏</span>
+                            <span class="stat-value" id="today-profit">¥0.00</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">持仓成本</span>
+                            <span class="stat-value" id="total-cost">¥0.00</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">总收益率</span>
+                            <span class="stat-value" id="total-return">0.00%</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="report-card card">
+                    <h3 class="card-title">📋 今日汇报</h3>
+                    <div id="report-content" class="report-content">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </section>
+
+                <section class="portfolio-card card">
+                    <div class="card-header">
+                        <h3 class="card-title">📊 持仓明细</h3>
+                        <button id="add-fund-btn" class="btn-small">+ 添加</button>
+                    </div>
+                    <div id="portfolio-list" class="portfolio-list">
+                        <div class="empty-state">暂无持仓数据</div>
+                    </div>
+                </section>
+
+                <section class="upload-card card">
+                    <h3 class="card-title">📸 持仓同步</h3>
+                    <div class="upload-area" id="upload-area">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <p>点击或拖拽上传持仓截图</p>
+                        <input type="file" id="file-input" accept="image/*" multiple>
+                    </div>
+                </section>
+
+                <section class="recommend-card card">
+                    <h3 class="card-title">🎯 基金推荐</h3>
+                    <div id="recommend-list" class="recommend-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </section>
+
+                <section class="help-card card">
+                    <h3 class="card-title">💡 使用说明</h3>
+                    <ul class="help-list">
+                        <li>每个交易日 14:45 自动更新数据</li>
+                        <li>点击右上角 🔄 可手动刷新</li>
+                        <li>添加到主屏幕可获得类App体验</li>
+                        <li>数据来源：天天基金实时估值API</li>
+                        <li>电脑关机也能访问，CDN全球加速</li>
+                    </ul>
+                </section>
+            </main>
+
+            <nav class="app-nav">
+                <button class="nav-item active" data-tab="dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"/>
+                        <rect x="14" y="3" width="7" height="7"/>
+                        <rect x="14" y="14" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    <span>首页</span>
+                </button>
+                <button class="nav-item" data-tab="portfolio">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="1" x2="12" y2="23"/>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    <span>持仓</span>
+                </button>
+                <button class="nav-item" data-tab="recommend">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                    </svg>
+                    <span>推荐</span>
+                </button>
+                <button class="nav-item" data-tab="settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>设置</span>
+                </button>
+            </nav>
+        </div>
+
+        <div id="settings-page" class="page">
+            <header class="app-header">
+                <div class="header-content">
+                    <button id="back-btn" class="icon-btn">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 12H5M12 19l-7-7 7-7"/>
+                        </svg>
+                    </button>
+                    <h2>设置</h2>
+                </div>
+            </header>
+            <main class="app-content">
+                <section class="settings-card card">
+                    <div class="setting-item">
+                        <span class="setting-label">更新频率</span>
+                        <select id="update-freq" class="setting-select">
+                            <option value="auto">自动（交易日14:45）</option>
+                            <option value="1h">每小时</option>
+                            <option value="manual">仅手动</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">密码保护</span>
+                        <label class="switch">
+                            <input type="checkbox" id="password-toggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">清除数据</span>
+                        <button id="clear-data-btn" class="btn-danger">清除所有数据</button>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">导出数据</span>
+                        <button id="export-data-btn" class="btn-secondary">导出为JSON</button>
+                    </div>
+                    <div class="setting-item">
+                        <span class="setting-label">导入数据</span>
+                        <button id="import-data-btn" class="btn-secondary">导入JSON文件</button>
+                        <input type="file" id="import-file" accept=".json" style="display:none;">
+                    </div>
+                </section>
+            </main>
+        </div>
+
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">添加基金</h3>
+                    <button id="modal-close" class="icon-btn">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body" id="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
