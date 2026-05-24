@@ -307,22 +307,78 @@ def generate_holdings_md(funds_normal, funds_pension, old_content, ocr_text):
     }
 
 
-def main():
-    ocr_file = sys.argv[1] if len(sys.argv) > 1 else "/tmp/ocr_combined.txt"
-    holdings_file = sys.argv[2] if len(sys.argv) > 2 else "portfolio/holdings.md"
+def load_ai_funds(ai_json_path):
+    """从 AI OCR 输出的 JSON 加载结构化基金数据，
+    转换为 parse_ocr_data 兼容的格式 (code/name/numbers/percentages/section)"""
+    with open(ai_json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
 
-    with open(ocr_file, "r", encoding="utf-8") as f:
-        ocr_text = f.read()
+    funds_normal = []
+    funds_pension = []
+    for f in data.get("funds", []):
+        code = f.get("code", "")
+        name = f.get("name", "")
+        total_amt = f.get("total_amount", "0")
+        daily_ret = f.get("daily_return", "0")
+        hold_ret = f.get("holding_return", "0")
+        hold_pct = f.get("holding_return_pct", "0%")
+        account = f.get("account", "normal")
+
+        item = {
+            "code": code,
+            "name": name,
+            "numbers": [total_amt, daily_ret, hold_ret],
+            "percentages": [hold_pct],
+            "section": account,
+        }
+        if account == "pension":
+            funds_pension.append(item)
+        else:
+            funds_normal.append(item)
+
+    print(f"AI JSON 加载：普通 {len(funds_normal)} 支，养老金 {len(funds_pension)} 支")
+    return funds_normal, funds_pension
+
+
+def main():
+    # 解析参数
+    ai_json_path = None
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    for a in sys.argv[1:]:
+        if a.startswith("--ai-json="):
+            ai_json_path = a.split("=", 1)[1]
+        elif a == "--ai-json" and len(sys.argv) > sys.argv.index(a) + 1:
+            ai_json_path = sys.argv[sys.argv.index(a) + 1]
+
+    ocr_file = args[0] if len(args) > 0 else "/tmp/ocr_combined.txt"
+    holdings_file = args[1] if len(args) > 1 else "portfolio/holdings.md"
+
     with open(holdings_file, "r", encoding="utf-8") as f:
         old_content = f.read()
 
-    print("=" * 60)
-    print("OCR 原始文本（前2000字符）：")
-    print("-" * 60)
-    print(ocr_text[:2000])
-    print("-" * 60)
+    # ── AI 模式：直接从 JSON 加载 ──
+    if ai_json_path and os.path.exists(ai_json_path):
+        print("=" * 60)
+        print("🤖 AI 智能识别模式")
+        print("=" * 60)
+        funds_normal, funds_pension = load_ai_funds(ai_json_path)
+        ocr_text = ""  # AI 模式下不需要 OCR 文本解析
+        # 加载 AI OCR 生成的文本用于 Issue 评论展示
+        if os.path.exists(ocr_file):
+            with open(ocr_file, "r", encoding="utf-8") as f:
+                ocr_text = f.read()
+    else:
+        # ── 传统 OCR 模式 ──
+        with open(ocr_file, "r", encoding="utf-8") as f:
+            ocr_text = f.read()
 
-    funds_normal, funds_pension, total_normal, total_pension = parse_ocr_data(ocr_text, old_content)
+        print("=" * 60)
+        print("OCR 原始文本（前2000字符）：")
+        print("-" * 60)
+        print(ocr_text[:2000])
+        print("-" * 60)
+
+        funds_normal, funds_pension, total_normal, total_pension = parse_ocr_data(ocr_text, old_content)
 
     print(f"\n识别结果：普通 {len(funds_normal)} 支，养老金 {len(funds_pension)} 支")
 

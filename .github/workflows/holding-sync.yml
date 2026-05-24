@@ -12,7 +12,7 @@ permissions:
 jobs:
   process-screenshots:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     if: |
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.issue.labels.*.name, 'holding-sync')
@@ -28,10 +28,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 🔤 安装 Tesseract OCR
+      - name: 🔤 安装 Tesseract OCR（备用）
         run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr tesseract-ocr-chi-sim tesseract-ocr-eng
           tesseract --version
           tesseract --list-langs
 
@@ -83,7 +83,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          IMG_COUNT=$(ls /tmp/screenshots/ 2>/dev/null | wc -l)
+          IMG_COUNT=$(find /tmp/screenshots -type f 2>/dev/null | wc -l)
           curl -s -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/json" \
@@ -91,7 +91,8 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/labels" 2>/dev/null || true
           python3 -c "
           import json, urllib.request
-          msg = {'body': f'## 🔄 云端处理中\n\n已收到 **{env_var}** 张截图，正在自动OCR识别...\n\n预计 1-2 分钟完成'.replace('env_var', str($IMG_COUNT))}
+          img_count = ${IMG_COUNT}
+          msg = {'body': f'## 🔄 AI 智能识别中\n\n已收到 **{img_count}** 张截图，正在使用 AI Vision 分析...\n\n预计 30-60 秒完成'}
           req = urllib.request.Request(
             f'https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}/comments',
             data=json.dumps(msg).encode(),
@@ -100,16 +101,40 @@ jobs:
           urllib.request.urlopen(req)
           "
 
-      - name: 🔤 OCR 识别
+      # ─── AI OCR（主路径）───
+      - name: 🤖 AI 智能识别
+        id: ai_ocr
         if: steps.issue_info.outputs.issue_num != ''
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           mkdir -p /tmp/ocr_results
-          python3 scripts/ocr_screenshots.py /tmp/screenshots /tmp/ocr_results /tmp/ocr_combined.txt
+          python3 scripts/ai_ocr.py /tmp/screenshots /tmp/ocr_results /tmp/ocr_combined.txt
+          echo "AI OCR 完成"
+          echo "success=true" >> $GITHUB_OUTPUT
 
+      # ─── Tesseract OCR（降级）───
+      - name: 🔤 Tesseract 降级识别
+        if: steps.issue_info.outputs.issue_num != '' && steps.ai_ocr.outputs.success != 'true'
+        run: |
+          echo "AI OCR 不可用，降级到 Tesseract..."
+          mkdir -p /tmp/ocr_results
+          python3 scripts/ocr_screenshots.py /tmp/screenshots /tmp/ocr_results /tmp/ocr_combined.txt
+          echo "Tesseract OCR 完成"
+
+      # ─── 解析并更新 holdings.md ───
       - name: 🧠 解析并更新 holdings.md
+        id: update_holdings
         if: steps.issue_info.outputs.issue_num != ''
         run: |
-          python3 scripts/update_holdings.py /tmp/ocr_combined.txt portfolio/holdings.md
+          if [ "${{ steps.ai_ocr.outputs.success }}" = "true" ] && [ -f /tmp/ai_funds.json ]; then
+            echo "使用 AI 结构化数据更新 holdings.md"
+            python3 scripts/update_holdings.py --ai-json=/tmp/ai_funds.json /tmp/ocr_combined.txt portfolio/holdings.md
+          else
+            echo "使用 Tesseract OCR 文本解析"
+            python3 scripts/update_holdings.py /tmp/ocr_combined.txt portfolio/holdings.md
+          fi
 
       - name: 📊 审核报告评论
         if: steps.issue_info.outputs.issue_num != ''
@@ -123,7 +148,7 @@ jobs:
         run: |
           UPDATED=$(python3 -c "import json; print(json.load(open('/tmp/update_status.json')).get('updated', False))")
           if [ "$UPDATED" = "False" ]; then
-            echo "OCR 数据不足，跳过推送"
+            echo "数据不足，跳过推送"
             echo "skip_push=true" >> $GITHUB_ENV
             exit 0
           fi
@@ -154,9 +179,9 @@ jobs:
             -d '{"state":"closed"}' \
             "https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.issue_info.outputs.issue_num }}"
           if [ "$UPDATED" = "True" ]; then
-            MSG="## ✅ 处理完成 - holdings.md 已更新, 仪表盘1-2分钟内刷新"
+            MSG="## ✅ AI 处理完成 - holdings.md 已更新, 仪表盘1-2分钟内刷新"
           else
-            MSG="## ⚠️ OCR数据不足未更新, 请重新截图上传或用WorkBuddy对话更新"
+            MSG="## ⚠️ 识别数据不足未更新, 请重新截图上传或用WorkBuddy对话更新"
           fi
           python3 -c "
           import json, urllib.request
