@@ -107,7 +107,7 @@ jobs:
         if: steps.issue_info.outputs.issue_num != ''
         continue-on-error: true
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
           mkdir -p /tmp/ocr_results
           python3 scripts/ai_ocr.py /tmp/screenshots /tmp/ocr_results /tmp/ocr_combined.txt

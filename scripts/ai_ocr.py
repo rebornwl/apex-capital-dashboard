@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
 巅峰资本 - AI 智能截图识别
-使用 Claude Vision API 理解持仓截图内容，替代传统 Tesseract OCR。
+使用 DeepSeek Vision API 理解持仓截图内容，替代传统 Tesseract OCR。
 输出结构化 JSON 供 update_holdings.py 直接消费，避免文本解析误差。
 """
 import os, sys, json, base64, urllib.request, glob
 
-API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-API_URL = "https://api.anthropic.com/v1/messages"
-MODEL = "claude-sonnet-4-6"
+API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
+API_URL = "https://api.deepseek.com/v1/chat/completions"
+MODEL = "deepseek-chat"
 
 PROMPT = """你是一个基金持仓截图分析专家。上面这些是用户手机截图（可能多张，是同一页面滚动截取的不同部分）。
 
@@ -57,7 +57,7 @@ PROMPT = """你是一个基金持仓截图分析专家。上面这些是用户�
 
 
 def analyze_screenshots(screenshot_dir):
-    """用 Claude Vision 分析所有截图，返回结构化基金数据"""
+    """用 DeepSeek Vision 分析所有截图，返回结构化基金数据"""
     screenshots = sorted(glob.glob(os.path.join(screenshot_dir, "*")))
     if not screenshots:
         print("没有截图文件")
@@ -65,16 +65,17 @@ def analyze_screenshots(screenshot_dir):
 
     print(f"AI 识别 {len(screenshots)} 张截图...")
 
-    # 构建 API 请求
+    # 构建 DeepSeek Vision API 请求（OpenAI 兼容格式）
     content = []
     for img_path in screenshots:
         with open(img_path, "rb") as f:
             img_b64 = base64.b64encode(f.read()).decode()
         ext = os.path.splitext(img_path)[1].lower().lstrip(".")
-        media_type = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(ext, "image/png")
+        mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(ext, "image/png")
+        data_url = f"data:{mime};base64,{img_b64}"
         content.append({
-            "type": "image",
-            "source": {"type": "base64", "media_type": media_type, "data": img_b64}
+            "type": "image_url",
+            "image_url": {"url": data_url}
         })
         print(f"  [{len(content)}/{len(screenshots)}] {os.path.basename(img_path)} ({len(img_b64):,} chars base64)")
 
@@ -91,8 +92,7 @@ def analyze_screenshots(screenshot_dir):
         API_URL,
         data=json.dumps(body).encode(),
         headers={
-            "x-api-key": API_KEY,
-            "anthropic-version": "2023-06-01",
+            "Authorization": f"Bearer {API_KEY}",
             "Content-Type": "application/json"
         }
     )
@@ -108,11 +108,11 @@ def analyze_screenshots(screenshot_dir):
         print(f"请求失败: {e}")
         return None
 
-    # 提取文本响应
+    # DeepSeek 响应格式: choices[0].message.content
     text = ""
-    for block in result.get("content", []):
-        if block.get("type") == "text":
-            text += block.get("text", "")
+    choices = result.get("choices", [])
+    if choices:
+        text = choices[0].get("message", {}).get("content", "")
 
     if not text:
         print("API 返回空内容")
@@ -133,7 +133,6 @@ def analyze_screenshots(screenshot_dir):
     except json.JSONDecodeError as e:
         print(f"JSON 解析失败: {e}")
         print(f"AI 原始响应（前2000字符）:\n{text[:2000]}")
-        # 保存原始响应用于调试
         with open("/tmp/ai_raw_response.txt", "w", encoding="utf-8") as f:
             f.write(text)
         print("原始响应已保存到 /tmp/ai_raw_response.txt")
@@ -142,7 +141,6 @@ def analyze_screenshots(screenshot_dir):
     funds = data.get("funds", [])
     print(f"AI 识别到 {len(funds)} 支基金")
 
-    # 分类统计
     normal_count = sum(1 for f in funds if f.get("account") != "pension")
     pension_count = sum(1 for f in funds if f.get("account") == "pension")
     print(f"  普通账户: {normal_count} 支")
@@ -198,7 +196,7 @@ def main():
     combined_file = sys.argv[3] if len(sys.argv) > 3 else "/tmp/ocr_combined.txt"
 
     if not API_KEY:
-        print("ANTHROPIC_API_KEY 未设置，无法使用 AI OCR")
+        print("DEEPSEEK_API_KEY 未设置，无法使用 AI OCR")
         sys.exit(2)
 
     data = analyze_screenshots(screenshot_dir)
