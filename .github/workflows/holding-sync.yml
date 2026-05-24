@@ -43,7 +43,6 @@ jobs:
           if [ "${{ github.event_name }}" = "issues" ]; then
             ISSUE_NUM="${{ github.event.issue.number }}"
             ISSUE_TITLE="${{ github.event.issue.title }}"
-            ISSUE_BODY="${{ github.event.issue.body }}"
           else
             LATEST=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/issues?labels=holding-sync&state=open&per_page=1" \
@@ -57,12 +56,15 @@ jobs:
             ISSUE_DATA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/issues/$LATEST")
             ISSUE_TITLE=$(echo "$ISSUE_DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
-            ISSUE_BODY=$(echo "$ISSUE_DATA" | python3 -c "import sys,json; print(json.load(sys.stdin)['body'] or '')")
           fi
+          # 统一通过 API 获取完整 body（避免 event payload 对大 body 截断）
+          ISSUE_FULL=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUM")
+          echo "$ISSUE_FULL" | python3 -c "import sys,json; print(json.load(sys.stdin)['body'] or '')" > /tmp/issue_body.txt
+          BODY_SIZE=$(wc -c < /tmp/issue_body.txt)
           echo "issue_num=$ISSUE_NUM" >> $GITHUB_OUTPUT
           echo "ISSUE_NUM=$ISSUE_NUM" >> $GITHUB_ENV
-          echo "$ISSUE_BODY" > /tmp/issue_body.txt
-          echo "Issue #$ISSUE_NUM: $ISSUE_TITLE"
+          echo "Issue #$ISSUE_NUM: $ISSUE_TITLE (body ${BODY_SIZE} bytes)"
 
       - name: ⏭️ 跳过（无待处理 Issue）
         if: steps.issue_info.outputs.issue_num == ''

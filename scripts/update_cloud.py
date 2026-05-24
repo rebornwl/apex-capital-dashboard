@@ -10,7 +10,19 @@ import re
 import os
 import sys
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone, tzinfo
+
+# 北京时区
+class BeijingTime(tzinfo):
+    def utcoffset(self, dt): return timedelta(hours=8)
+    def dst(self, dt): return timedelta(0)
+    def tzname(self, dt): return "CST"
+
+BEIJING_TZ = BeijingTime()
+
+def beijing_now():
+    """返回北京时间的 datetime"""
+    return datetime.now(timezone.utc).astimezone(BEIJING_TZ)
 
 # 修复 Windows GBK 环境下的 Unicode 输出问题
 if sys.stdout and hasattr(sys.stdout, 'reconfigure'):
@@ -61,8 +73,8 @@ HOLIDAYS_2026 = {
 }
 
 def is_trading_day():
-    """判断是否为交易日（排除周末和法定节假日）"""
-    date = datetime.now()
+    """判断是否为交易日（排除周末和法定节假日），使用北京时间"""
+    date = beijing_now()
     if date.weekday() >= 5:
         return False
     today_str = date.strftime("%Y-%m-%d")
@@ -160,8 +172,8 @@ def parse_holdings_md(filepath):
 
 def run_update():
     """主函数：读取持仓 + 拉取估值，生成JSON"""
-    now = datetime.now()
-    print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] 开始云端更新...")
+    now = beijing_now()
+    print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')} CST] 开始云端更新...")
     print(f"  GitHub Actions 运行环境")
     print(f"  交易日判断: {'是' if is_trading_day() else '否（周末）'}")
 
@@ -247,7 +259,7 @@ def run_update():
         type_stats[t]["value"] += f["market_value"]
         type_stats[t]["count"] += 1
 
-    trading_status = "交易中" if is_trading_day() and 9 <= now.hour < 15 else "已收盘" if is_trading_day() else "休市"
+    trading_status = "交易中" if is_trading_day() and 9 <= now.hour < 15 else ("已收盘" if is_trading_day() else "休市")
 
     output = {
         "update_time": now.strftime("%Y-%m-%d %H:%M:%S"),

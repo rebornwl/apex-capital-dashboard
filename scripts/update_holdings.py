@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 
 
 def parse_ocr_data(ocr_text, old_content):
-    """从OCR文本中提取基金数据"""
+    """从OCR文本中提取基金数据（支持多截图合并去重）"""
     lines = ocr_text.split('\n')
-    funds_normal = []
-    funds_pension = []
+    funds_by_code = {}  # {code: {name, nums, pcts, accounts}}
+    fund_order = []     # 保持识别顺序的 code 列表
     current_section = "normal"
     total_normal = None
     total_pension = None
@@ -16,6 +16,11 @@ def parse_ocr_data(ocr_text, old_content):
     for line in lines:
         line = line.strip()
         if not line:
+            continue
+
+        # 跳过截图分隔符
+        if line.startswith('===') and ('截图' in line or 'screenshot' in line.lower()):
+            print(f"  ── {line.strip('= ')} ──")
             continue
 
         # 检测账户切换
@@ -44,19 +49,30 @@ def parse_ocr_data(ocr_text, old_content):
             name_match = re.search(r'\d{6}\s*([^\d+\-¥,%]{2,30})', line)
             fund_name = name_match.group(1).strip() if name_match else ""
 
-            print(f"  基金: {code} {fund_name[:15]} | 数值: {numbers}")
+            tag = "dup"
+            if code not in funds_by_code:
+                tag = "new"
+                fund_order.append(code)
 
             if len(numbers) >= 3:
-                fund = {
+                funds_by_code[code] = {
+                    'code': code,
+                    'name': fund_name or funds_by_code.get(code, {}).get('name', ''),
+                    'numbers': numbers,
+                    'percentages': percentages,
+                    'section': current_section,
+                }
+                print(f"  [{tag}] {code} {fund_name[:15]} | 数值: {numbers}")
+            elif code not in funds_by_code and len(numbers) > 0:
+                # 初次识别但数值不完整，先记下来等下张截图补
+                funds_by_code[code] = {
                     'code': code,
                     'name': fund_name,
                     'numbers': numbers,
                     'percentages': percentages,
+                    'section': current_section,
                 }
-                if current_section == "pension":
-                    funds_pension.append(fund)
-                else:
-                    funds_normal.append(fund)
+                print(f"  [{tag}] {code} {fund_name[:15]} | 数值不足: {numbers}")
 
         # 提取总资产
         total_match = re.search(r'总资产[^\d]*([\d,]+\.\d{2})', line)
@@ -66,6 +82,24 @@ def parse_ocr_data(ocr_text, old_content):
                 total_pension = val
             else:
                 total_normal = val
+
+    # 按 section 拆分并保持顺序
+    funds_normal = []
+    funds_pension = []
+    seen_normal = set()
+    seen_pension = set()
+    for code in fund_order:
+        f = funds_by_code.get(code)
+        if not f:
+            continue
+        if f['section'] == 'pension':
+            if code not in seen_pension:
+                funds_pension.append(f)
+                seen_pension.add(code)
+        else:
+            if code not in seen_normal:
+                funds_normal.append(f)
+                seen_normal.add(code)
 
     return funds_normal, funds_pension, total_normal, total_pension
 
@@ -292,12 +326,14 @@ def main():
 
     print(f"\n识别结果：普通 {len(funds_normal)} 支，养老金 {len(funds_pension)} 支")
 
-    if len(funds_normal) < 15 and len(funds_pension) == 0:
-        print("\nOCR 数据严重不足，不更新 holdings.md")
+    total_recognized = len(funds_normal) + len(funds_pension)
+    if total_recognized < 10:
+        print(f"\nOCR 数据严重不足（仅识别 {total_recognized} 支），不更新 holdings.md")
         status = {
             "updated": False,
             "funds_normal_count": len(funds_normal),
             "funds_pension_count": len(funds_pension),
+            "total_count": total_recognized,
         }
         with open("/tmp/update_status.json", "w", encoding="utf-8") as f:
             json.dump(status, f, ensure_ascii=False, indent=2)

@@ -80,12 +80,17 @@ def post_review(issue_num, status_file, ocr_file):
 
         comment_body = "\n".join(body_parts)
     else:
+        screenshot_count = ocr_text.count('=== 截图')
+        hint = ""
+        if screenshot_count > 1:
+            hint = f"\n检测到 **{screenshot_count}** 张截图，建议使用 WorkBuddy 对话发送截图。"
         comment_body = f"""## ⚠️ OCR识别数据不足
 
 识别到的基金数量：
 - 普通账户：{status.get('funds_normal_count', 0)} 支（期望 20 支）
 - 养老金账户：{status.get('funds_pension_count', 0)} 支（期望 5 支）
-
+- 总计：{status.get('total_count', status.get('funds_normal_count', 0) + status.get('funds_pension_count', 0))} 支（最少需要 10 支）
+{hint}
 请重新截取更清晰的持仓页面截图。
 
 <details><summary>📄 OCR原始文本</summary>

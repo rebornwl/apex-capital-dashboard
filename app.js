@@ -1,428 +1,578 @@
 const APP_PASSWORD = '1688';
+const POLL_INTERVAL = 5 * 60 * 1000;
+const DATA_URL = 'data.json';
+const VERSION_URL = 'data_version.json';
+
 const STORAGE_KEYS = {
-    portfolio: 'apex_portfolio',
     settings: 'apex_settings',
-    lastUpdate: 'apex_lastUpdate',
-    reports: 'apex_reports',
-    recommendations: 'apex_recommendations'
+    localFunds: 'apex_local_funds',
+    lastVisit: 'apex_last_visit'
 };
 
-class DataManager {
-    static get(key) {
+class DataLoader {
+    constructor() {
+        this.cloudData = null;
+        this.currentVersion = null;
+        this.pollTimer = null;
+        this.listeners = [];
+    }
+
+    onChange(fn) { this.listeners.push(fn); }
+
+    _notify() {
+        this.listeners.forEach(fn => fn(this.cloudData));
+    }
+
+    async load() {
         try {
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : null;
-        } catch (e) {
-            console.error('读取数据失败:', e);
-            return null;
-        }
+            const versionResp = await fetch(VERSION_URL, { cache: 'no-store' });
+            if (versionResp.ok) {
+                const v = await versionResp.json();
+                this.currentVersion = v.v;
+            }
+        } catch (e) { /* version file optional */ }
+
+        const url = this.currentVersion
+            ? `${DATA_URL}?v=${this.currentVersion}`
+            : `${DATA_URL}?t=${Date.now()}`;
+
+        const resp = await fetch(url, { cache: 'no-store' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        this.cloudData = await resp.json();
+        this._notify();
+        return this.cloudData;
     }
 
-    static set(key, value) {
+    async checkForUpdate() {
         try {
-            localStorage.setItem(key, JSON.stringify(value));
-            return true;
-        } catch (e) {
-            console.error('保存数据失败:', e);
-            return false;
+            const resp = await fetch(VERSION_URL, { cache: 'no-store' });
+            if (!resp.ok) return false;
+            const v = await resp.json();
+            if (v.v !== this.currentVersion) {
+                this.currentVersion = v.v;
+                await this.load();
+                return true;
+            }
+        } catch (e) { /* ignore */ }
+        return false;
+    }
+
+    startPolling() {
+        this.stopPolling();
+        this.pollTimer = setInterval(() => this.checkForUpdate(), POLL_INTERVAL);
+    }
+
+    stopPolling() {
+        if (this.pollTimer) {
+            clearInterval(this.pollTimer);
+            this.pollTimer = null;
         }
-    }
-
-    static remove(key) {
-        localStorage.removeItem(key);
-    }
-
-    static clearAll() {
-        Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
     }
 }
 
-class FundData {
-    constructor() {
-        this.portfolio = DataManager.get(STORAGE_KEYS.portfolio) || [];
-        this.settings = DataManager.get(STORAGE_KEYS.settings) || {
-            updateFreq: 'auto',
-            passwordEnabled: true
-        };
-        this.lastUpdate = DataManager.get(STORAGE_KEYS.lastUpdate) || null;
-        this.reports = DataManager.get(STORAGE_KEYS.reports) || [];
-        this.recommendations = DataManager.get(STORAGE_KEYS.recommendations) || [];
+class Settings {
+    static get() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEYS.settings)) || {};
+        } catch (e) { return {}; }
     }
-
-    savePortfolio() {
-        DataManager.set(STORAGE_KEYS.portfolio, this.portfolio);
-        this.updateLastUpdate();
+    static set(obj) {
+        localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(obj));
     }
-
-    saveSettings() {
-        DataManager.set(STORAGE_KEYS.settings, this.settings);
+    static getLocalFunds() {
+        try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEYS.localFunds)) || [];
+        } catch (e) { return []; }
     }
-
-    updateLastUpdate() {
-        this.lastUpdate = new Date().toISOString();
-        DataManager.set(STORAGE_KEYS.lastUpdate, this.lastUpdate);
-    }
-
-    addFund(fund) {
-        fund.id = Date.now();
-        fund.createdAt = new Date().toISOString();
-        this.portfolio.push(fund);
-        this.savePortfolio();
-        this.generateReport();
-        this.generateRecommendations();
-    }
-
-    updateFund(id, updates) {
-        const index = this.portfolio.findIndex(f => f.id === id);
-        if (index !== -1) {
-            this.portfolio[index] = { ...this.portfolio[index], ...updates };
-            this.savePortfolio();
-            this.generateReport();
-            this.generateRecommendations();
-        }
-    }
-
-    removeFund(id) {
-        this.portfolio = this.portfolio.filter(f => f.id !== id);
-        this.savePortfolio();
-        this.generateReport();
-        this.generateRecommendations();
-    }
-
-    getTotalAsset() {
-        return this.portfolio.reduce((sum, f) => sum + (f.currentValue || 0), 0);
-    }
-
-    getTotalCost() {
-        return this.portfolio.reduce((sum, f) => sum + (f.cost || 0), 0);
-    }
-
-    getTodayProfit() {
-        return this.portfolio.reduce((sum, f) => sum + (f.todayProfit || 0), 0);
-    }
-
-    getTotalReturn() {
-        const cost = this.getTotalCost();
-        const asset = this.getTotalAsset();
-        if (cost === 0) return 0;
-        return ((asset - cost) / cost * 100);
-    }
-
-    generateReport() {
-        const totalAsset = this.getTotalAsset();
-        const todayProfit = this.getTodayProfit();
-        const totalReturn = this.getTotalReturn();
-        
-        const report = {
-            date: new Date().toISOString(),
-            totalAsset,
-            todayProfit,
-            totalReturn,
-            fundCount: this.portfolio.length,
-            analysis: this._generateAnalysis()
-        };
-        
-        this.reports.unshift(report);
-        if (this.reports.length > 30) this.reports.pop();
-        DataManager.set(STORAGE_KEYS.reports, this.reports);
-        
-        return report;
-    }
-
-    _generateAnalysis() {
-        if (this.portfolio.length === 0) {
-            return '暂无持仓数据，请添加基金开始管理您的投资组合。';
-        }
-        
-        const positiveCount = this.portfolio.filter(f => (f.todayProfit || 0) > 0).length;
-        const negativeCount = this.portfolio.filter(f => (f.todayProfit || 0) < 0).length;
-        const todayProfit = this.getTodayProfit();
-        
-        let analysis = '';
-        
-        if (todayProfit > 0) {
-            analysis += `今日盈利 ¥${todayProfit.toFixed(2)}，表现优秀！`;
-        } else if (todayProfit < 0) {
-            analysis += `今日亏损 ¥${Math.abs(todayProfit).toFixed(2)}，建议保持耐心。`;
-        } else {
-            analysis += '今日持平，继续观察市场走势。';
-        }
-        
-        analysis += ` 共持有 ${this.portfolio.length} 只基金，`;
-        analysis += `${positiveCount} 只上涨，${negativeCount} 只下跌。`;
-        
-        const totalReturn = this.getTotalReturn();
-        if (totalReturn > 0) {
-            analysis += ` 整体收益率 ${totalReturn.toFixed(2)}%，投资策略成效显著。`;
-        } else if (totalReturn < 0) {
-            analysis += ` 整体收益率 ${totalReturn.toFixed(2)}%，建议审视持仓结构。`;
-        }
-        
-        return analysis;
-    }
-
-    generateRecommendations() {
-        const recommendations = [];
-        
-        const sampleFunds = [
-            { name: '易方达蓝筹精选混合', code: '005827', type: 'buy', reason: '长期业绩稳定，经理风格稳健，适合长期持有。当前估值合理，建议逢低布局。' },
-            { name: '景顺长城新兴成长混合', code: '260108', type: 'hold', reason: '持仓以消费和科技为主，当前处于震荡期，建议持有观察。' },
-            { name: '华夏回报混合A', code: '002001', type: 'buy', reason: '绝对收益策略，分红稳定，适合稳健型投资者。' },
-            { name: '广发双擎升级混合', code: '005911', type: 'sell', reason: '近期涨幅较大，估值偏高，建议部分止盈。' },
-            { name: '中欧时代先锋股票A', code: '001938', type: 'hold', reason: '科技成长风格，波动较大，建议控制仓位持有。' }
-        ];
-        
-        sampleFunds.forEach((fund, index) => {
-            recommendations.push({
-                id: index + 1,
-                ...fund,
-                date: new Date().toISOString()
-            });
-        });
-        
-        this.recommendations = recommendations;
-        DataManager.set(STORAGE_KEYS.recommendations, this.recommendations);
-        
-        return recommendations;
-    }
-
-    processImageUpload(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                setTimeout(() => {
-                    const mockFunds = [
-                        { name: '易方达消费精选股票', code: '009265', shares: 1000, costPrice: 2.5, currentPrice: 2.8, cost: 2500, currentValue: 2800, todayProfit: 50 },
-                        { name: '招商中证白酒指数', code: '161725', shares: 500, costPrice: 1.2, currentPrice: 1.35, cost: 600, currentValue: 675, todayProfit: 20 }
-                    ];
-                    
-                    mockFunds.forEach(fund => {
-                        const existing = this.portfolio.find(f => f.code === fund.code);
-                        if (existing) {
-                            this.updateFund(existing.id, fund);
-                        } else {
-                            this.addFund(fund);
-                        }
-                    });
-                    
-                    resolve(mockFunds);
-                }, 1500);
-            };
-            reader.readAsDataURL(file);
-        });
+    static setLocalFunds(funds) {
+        localStorage.setItem(STORAGE_KEYS.localFunds, JSON.stringify(funds));
     }
 }
 
 class UIManager {
-    constructor(fundData) {
-        this.fundData = fundData;
+    constructor() {
+        this.loader = new DataLoader();
+        this.localFunds = Settings.getLocalFunds();
+        this.isLoggedIn = false;
         this.init();
     }
 
     init() {
         this.bindEvents();
-        this.checkTradeStatus();
-        this.renderAll();
+        this.loader.onChange(data => this.onDataLoaded(data));
+        this.showLoading(true);
+        this.loader.load()
+            .then(() => { this.loader.startPolling(); })
+            .catch(err => this.onLoadError(err));
     }
+
+    // ── Event Binding ──
 
     bindEvents() {
         document.getElementById('login-btn').addEventListener('click', () => this.handleLogin());
-        document.getElementById('password-input').addEventListener('keypress', (e) => {
+        document.getElementById('password-input').addEventListener('keypress', e => {
             if (e.key === 'Enter') this.handleLogin();
         });
-
         document.getElementById('refresh-btn').addEventListener('click', () => this.handleRefresh());
-
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', () => this.switchTab(item.dataset.tab));
-        });
-
         document.getElementById('add-fund-btn').addEventListener('click', () => this.showAddFundModal());
         document.getElementById('modal-close').addEventListener('click', () => this.hideModal());
-        document.getElementById('modal').addEventListener('click', (e) => {
+        document.getElementById('modal').addEventListener('click', e => {
             if (e.target.id === 'modal') this.hideModal();
         });
-
-        const uploadArea = document.getElementById('upload-area');
-        const fileInput = document.getElementById('file-input');
-        uploadArea.addEventListener('click', () => fileInput.click());
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.style.borderColor = 'var(--primary)';
-        });
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.style.borderColor = 'var(--border)';
-        });
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.style.borderColor = 'var(--border)';
-            const files = e.dataTransfer.files;
-            if (files.length > 0) this.handleFileUpload(files);
-        });
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) this.handleFileUpload(e.target.files);
-        });
-
         document.getElementById('back-btn').addEventListener('click', () => this.showPage('main'));
-        document.getElementById('update-freq').addEventListener('change', (e) => {
-            this.fundData.settings.updateFreq = e.target.value;
-            this.fundData.saveSettings();
-            this.showToast('设置已保存');
-        });
-        document.getElementById('password-toggle').addEventListener('change', (e) => {
-            this.fundData.settings.passwordEnabled = e.target.checked;
-            this.fundData.saveSettings();
-            this.showToast('设置已保存');
-        });
         document.getElementById('clear-data-btn').addEventListener('click', () => {
-            if (confirm('确定要清除所有数据吗？此操作不可恢复！')) {
-                DataManager.clearAll();
-                this.showToast('数据已清除');
-                location.reload();
+            if (confirm('确定要清除所有本地数据吗？云端数据不受影响。')) {
+                localStorage.clear();
+                this.localFunds = [];
+                this.showToast('本地数据已清除');
+                this.renderLocalPortfolio();
             }
         });
         document.getElementById('export-data-btn').addEventListener('click', () => this.exportData());
         document.getElementById('import-data-btn').addEventListener('click', () => {
             document.getElementById('import-file').click();
         });
-        document.getElementById('import-file').addEventListener('change', (e) => {
+        document.getElementById('import-file').addEventListener('change', e => {
             if (e.target.files.length > 0) this.importData(e.target.files[0]);
         });
-
-        document.getElementById('update-freq').value = this.fundData.settings.updateFreq;
-        document.getElementById('password-toggle').checked = this.fundData.settings.passwordEnabled;
+        document.getElementById('retry-btn').addEventListener('click', () => {
+            this.showLoading(true);
+            this.showError(false);
+            this.loader.load()
+                .then(() => this.loader.startPolling())
+                .catch(err => this.onLoadError(err));
+        });
+        document.getElementById('error-banner-close').addEventListener('click', () => {
+            this.showError(false);
+        });
+        document.getElementById('stale-banner-close').addEventListener('click', () => {
+            document.getElementById('stale-banner').style.display = 'none';
+        });
     }
+
+    // ── Login ──
 
     handleLogin() {
         const input = document.getElementById('password-input');
         const errorMsg = document.getElementById('error-msg');
         const loginBtn = document.getElementById('login-btn');
-        
+
         if (input.value === APP_PASSWORD) {
+            this.isLoggedIn = true;
             loginBtn.textContent = '登录中...';
             loginBtn.disabled = true;
-            
             const loginPage = document.getElementById('login-page');
             loginPage.style.animation = 'fadeOut 0.3s ease-out forwards';
-            
             setTimeout(() => {
                 this.showPage('main');
-                this.renderAll();
-                
                 document.getElementById('main-page').style.animation = 'slideIn 0.5s ease-out';
-                
                 loginBtn.textContent = '进入系统';
                 loginBtn.disabled = false;
                 input.value = '';
-                
-                this.showToast('🎉 欢迎回来！巅峰资本为您服务');
-                
-                if (this.fundData.portfolio.length === 0) {
-                    setTimeout(() => {
-                        this.showToast('💡 点击"添加"按钮开始管理您的基金');
-                    }, 1500);
-                }
+                this.showToast('欢迎回来！巅峰资本为您服务');
+                if (this.loader.cloudData) this.renderAll();
             }, 350);
         } else {
             errorMsg.textContent = '密码错误，请重试';
             input.value = '';
             input.focus();
-            
             const loginPageEl = document.getElementById('login-page');
             loginPageEl.classList.add('shake');
-            setTimeout(() => {
-                loginPageEl.classList.remove('shake');
-            }, 500);
-            
-            setTimeout(() => {
-                errorMsg.textContent = '';
-            }, 3000);
+            setTimeout(() => loginPageEl.classList.remove('shake'), 500);
+            setTimeout(() => { errorMsg.textContent = ''; }, 3000);
         }
     }
 
-    handleRefresh() {
-        this.showToast('正在刷新数据...');
-        
-        this.fundData.portfolio.forEach(fund => {
-            const change = (Math.random() - 0.5) * 0.02;
-            fund.currentPrice = (fund.currentPrice || fund.costPrice || 1) * (1 + change);
-            fund.currentValue = (fund.shares || 0) * fund.currentPrice;
-            fund.todayProfit = fund.currentValue * change;
-        });
-        
-        this.fundData.savePortfolio();
-        this.fundData.generateReport();
-        this.fundData.generateRecommendations();
-        
-        setTimeout(() => {
-            this.renderAll();
-            this.showToast('数据已更新');
-        }, 1000);
+    // ── Data Loading ──
+
+    onDataLoaded(data) {
+        this.showLoading(false);
+        this.showError(false);
+        this.renderAll();
     }
 
-    async handleFileUpload(files) {
-        this.showToast('正在解析图片...');
-        
-        for (const file of files) {
-            if (file.type.startsWith('image/')) {
-                await this.fundData.processImageUpload(file);
+    onLoadError(err) {
+        this.showLoading(false);
+        this.showError(true);
+        console.error('数据加载失败:', err);
+    }
+
+    async handleRefresh() {
+        const btn = document.getElementById('refresh-btn');
+        btn.style.animation = 'spin 0.8s linear';
+        this.showToast('正在刷新数据...');
+
+        try {
+            const updated = await this.loader.checkForUpdate();
+            if (!updated && this.loader.cloudData) {
+                this.renderAll();
+                this.showToast('数据已是最新');
+            } else if (updated) {
+                this.showToast('数据已更新');
+            }
+        } catch (e) {
+            try {
+                await this.loader.load();
+                this.showToast('数据已更新');
+            } catch (e2) {
+                this.showToast('刷新失败，请检查网络');
             }
         }
-        
-        this.renderAll();
-        this.showToast('持仓数据已同步');
+
+        setTimeout(() => { btn.style.animation = ''; }, 800);
+    }
+
+    // ── UI State ──
+
+    showLoading(visible) {
+        document.getElementById('loading-overlay').style.display = visible ? 'flex' : 'none';
+    }
+
+    showError(visible) {
+        document.getElementById('error-banner').style.display = visible ? 'block' : 'none';
+    }
+
+    showPage(page) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        const target = document.getElementById(`${page}-page`);
+        if (target) target.classList.add('active');
+    }
+
+    showToast(message) {
+        const existing = document.querySelector('.toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // ── Render All ──
+
+    renderAll() {
+        const d = this.loader.cloudData;
+        if (!d) return;
+        this.renderHeader(d);
+        this.renderStaleBanner(d);
+        this.renderAssetOverview(d);
+        this.renderTypeDistribution(d);
+        this.renderReport(d);
+        this.renderPortfolio(d);
+        this.renderRankings(d);
+        this.renderLocalPortfolio();
+    }
+
+    // ── Header ──
+
+    renderHeader(d) {
+        document.getElementById('update-time').textContent = this._formatTime(d.update_time);
+        document.getElementById('trade-status').textContent = d.trading_status || '未知';
+        const statusEl = document.getElementById('trade-status');
+        if (d.trading_status === '交易中') {
+            statusEl.style.color = 'var(--success)';
+        } else {
+            statusEl.style.color = 'var(--text-secondary)';
+        }
+    }
+
+    _formatTime(timeStr) {
+        if (!timeStr) return '--';
+        try {
+            const t = new Date(timeStr.replace(' ', 'T'));
+            const now = new Date();
+            const diff = Math.floor((now - t) / 1000);
+            const abs = t.toLocaleString('zh-CN', { hour12: false });
+            if (diff < 60) return `刚刚 (${abs})`;
+            if (diff < 3600) return `${Math.floor(diff / 60)}分钟前 (${abs})`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)}小时前 (${abs})`;
+            return `${Math.floor(diff / 86400)}天前 (${abs})`;
+        } catch (e) {
+            return timeStr;
+        }
+    }
+
+    // ── Stale Banner ──
+
+    renderStaleBanner(d) {
+        const banner = document.getElementById('stale-banner');
+        const msgEl = document.getElementById('stale-msg');
+        if (d.data_stale && d.data_stale.level !== 'none') {
+            banner.className = 'stale-banner ' + d.data_stale.level;
+            msgEl.textContent = d.data_stale.msg;
+            banner.style.display = 'flex';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    // ── Asset Overview ──
+
+    renderAssetOverview(d) {
+        const s = d.summary;
+        document.getElementById('total-asset').textContent = `¥${s.total_value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
+
+        const todayEl = document.getElementById('today-profit');
+        const todayVal = s.today_pnl;
+        todayEl.textContent = `${todayVal >= 0 ? '+' : ''}¥${todayVal.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
+        todayEl.className = `stat-value ${todayVal >= 0 ? 'positive' : 'negative'}`;
+
+        document.getElementById('total-cost').textContent =
+            `¥${s.total_cost.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
+
+        const retEl = document.getElementById('total-return');
+        const retVal = s.total_hold_pnl_pct;
+        retEl.textContent = `${retVal >= 0 ? '+' : ''}${retVal.toFixed(2)}%`;
+        retEl.className = `stat-value ${retVal >= 0 ? 'positive' : 'negative'}`;
+
+        // Sub-stats: normal vs pension
+        document.getElementById('normal-value').textContent =
+            `¥${s.normal_value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
+        document.getElementById('pension-value').textContent =
+            `¥${s.pension_value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
+        document.getElementById('normal-today').textContent =
+            `${s.normal_today_pnl >= 0 ? '+' : ''}¥${s.normal_today_pnl.toFixed(2)}`;
+        document.getElementById('pension-today').textContent =
+            `${s.pension_today_pnl >= 0 ? '+' : ''}¥${s.pension_today_pnl.toFixed(2)}`;
+    }
+
+    // ── Type Distribution ──
+
+    renderTypeDistribution(d) {
+        const types = d.type_distribution;
+        if (!types) return;
+        const container = document.getElementById('type-distribution');
+        const maxVal = Math.max(...Object.values(types).map(t => t.value));
+
+        container.innerHTML = Object.entries(types).map(([key, t]) => {
+            const width = maxVal > 0 ? (t.value / maxVal * 100) : 0;
+            const labels = { qdii: 'QDII', mix: '混合', index: '指数', stock: '股票', fof: 'FOF', bond: '债券' };
+            return `
+                <div class="type-row">
+                    <span class="type-label">${labels[key] || key}</span>
+                    <div class="type-bar-track">
+                        <div class="type-bar-fill" style="width:${width}%"></div>
+                    </div>
+                    <span class="type-value">¥${(t.value / 10000).toFixed(1)}万 (${t.pct}%)</span>
+                </div>`;
+        }).join('');
+    }
+
+    // ── Report ──
+
+    renderReport(d) {
+        const el = document.getElementById('report-content');
+        if (d.report_text) {
+            el.innerHTML = d.report_text.split('\n').map(line =>
+                line ? `<p>${this._escapeHtml(line)}</p>` : '<br>'
+            ).join('');
+        } else {
+            el.innerHTML = '<div class="empty-state">暂无汇报数据</div>';
+        }
+    }
+
+    _escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    // ── Portfolio (Cloud) ──
+
+    renderPortfolio(d) {
+        const list = document.getElementById('portfolio-list');
+        const funds = d.funds || [];
+
+        if (funds.length === 0) {
+            list.innerHTML = '<div class="empty-state">暂无持仓数据</div>';
+            return;
+        }
+
+        list.innerHTML = funds.map(f => {
+            const changeClass = f.today_pct >= 0 ? 'positive' : 'negative';
+            const profitClass = f.hold_pnl >= 0 ? 'positive' : 'negative';
+            const warnings = (f.warnings || []).map(w => `<span class="fund-warning">${w}</span>`).join('');
+            const pensionBadge = f.is_pension
+                ? '<span class="pension-badge">养老</span>' : '';
+
+            return `
+                <div class="portfolio-item">
+                    <div class="portfolio-header">
+                        <div>
+                            <div class="fund-name">${f.name}${pensionBadge}</div>
+                            <div class="fund-meta">
+                                <span class="fund-code">${f.code}</span>
+                                <span class="fund-type-tag">${f.type || ''}</span>
+                            </div>
+                        </div>
+                        <div class="fund-change ${changeClass}">
+                            ${f.today_pct >= 0 ? '+' : ''}${f.today_pct.toFixed(2)}%
+                        </div>
+                    </div>
+                    <div class="portfolio-details">
+                        <div class="detail-item">
+                            <span class="detail-label">市值</span>
+                            <span class="detail-value">¥${f.market_value.toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">今日盈亏</span>
+                            <span class="detail-value ${changeClass}" style="color:${f.today_pnl >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                                ${f.today_pnl >= 0 ? '+' : ''}¥${f.today_pnl.toFixed(2)}
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">持有收益</span>
+                            <span class="detail-value ${profitClass}">
+                                ${f.hold_pnl_pct >= 0 ? '+' : ''}${f.hold_pnl_pct.toFixed(2)}%
+                            </span>
+                        </div>
+                    </div>
+                    ${warnings ? `<div class="fund-warnings">${warnings}</div>` : ''}
+                </div>`;
+        }).join('');
+    }
+
+    // ── Rankings ──
+
+    renderRankings(d) {
+        const rankings = d.rankings;
+        if (!rankings) return;
+
+        const profitList = document.getElementById('top-profit-list');
+        const lossList = document.getElementById('top-loss-list');
+
+        if (rankings.top_profit) {
+            profitList.innerHTML = rankings.top_profit.map((f, i) => `
+                <div class="rank-item">
+                    <span class="rank-num profit">${i + 1}</span>
+                    <span class="rank-name">${f.name}</span>
+                    <span class="rank-pct positive">+${f.pct.toFixed(2)}%</span>
+                </div>`).join('');
+        }
+
+        if (rankings.top_loss) {
+            lossList.innerHTML = rankings.top_loss.map((f, i) => `
+                <div class="rank-item">
+                    <span class="rank-num loss">${i + 1}</span>
+                    <span class="rank-name">${f.name}</span>
+                    <span class="rank-pct negative">${f.pct.toFixed(2)}%</span>
+                </div>`).join('');
+        }
+    }
+
+    // ── Local Portfolio ──
+
+    renderLocalPortfolio() {
+        const list = document.getElementById('local-portfolio-list');
+        const section = document.getElementById('local-portfolio-section');
+
+        if (!this.isLoggedIn) {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = '';
+
+        if (this.localFunds.length === 0) {
+            list.innerHTML = '<div class="empty-state">暂无手动添加的基金</div>';
+            return;
+        }
+
+        list.innerHTML = this.localFunds.map((f, idx) => {
+            const val = (f.shares || 0) * (f.currentPrice || 0);
+            const cost = (f.shares || 0) * (f.costPrice || 0);
+            const pnl = val - cost;
+            return `
+                <div class="portfolio-item local" data-idx="${idx}">
+                    <div class="portfolio-header">
+                        <div>
+                            <div class="fund-name">${f.name}</div>
+                            <div class="fund-code">${f.code || '--'}</div>
+                        </div>
+                        <span class="fund-change ${pnl >= 0 ? 'positive' : 'negative'}">
+                            ${pnl >= 0 ? '+' : ''}¥${pnl.toFixed(2)}
+                        </span>
+                    </div>
+                    <div class="portfolio-details">
+                        <div class="detail-item">
+                            <span class="detail-label">市值</span>
+                            <span class="detail-value">¥${val.toFixed(2)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">成本</span>
+                            <span class="detail-value">¥${cost.toFixed(2)}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">份额</span>
+                            <span class="detail-value">${(f.shares || 0).toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>`;
+        }).join('');
+
+        list.querySelectorAll('.portfolio-item.local').forEach(item => {
+            item.addEventListener('click', () => {
+                const idx = parseInt(item.dataset.idx);
+                this.showEditLocalFundModal(idx);
+            });
+        });
     }
 
     showAddFundModal() {
+        if (!this.isLoggedIn) {
+            this.showToast('请先登录后再添加基金');
+            return;
+        }
         const modal = document.getElementById('modal');
         const modalBody = document.getElementById('modal-body');
-        document.getElementById('modal-title').textContent = '添加基金';
-        
+        document.getElementById('modal-title').textContent = '添加基金（本地）';
+
         modalBody.innerHTML = `
+            <p style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:1rem;">
+                手动添加的基金存储在本地，不会与云端数据同步。
+            </p>
             <div class="form-group">
-                <label class="form-label">基金名称</label>
+                <label class="form-label">基金名称 *</label>
                 <input type="text" class="form-input" id="fund-name" placeholder="请输入基金名称">
             </div>
             <div class="form-group">
                 <label class="form-label">基金代码</label>
-                <input type="text" class="form-input" id="fund-code" placeholder="请输入基金代码">
+                <input type="text" class="form-input" id="fund-code" placeholder="如 005827">
             </div>
             <div class="form-group">
                 <label class="form-label">持有份额</label>
-                <input type="number" class="form-input" id="fund-shares" placeholder="请输入持有份额" step="0.01">
+                <input type="number" class="form-input" id="fund-shares" placeholder="0" step="0.01">
             </div>
             <div class="form-group">
                 <label class="form-label">成本单价</label>
-                <input type="number" class="form-input" id="fund-cost-price" placeholder="请输入成本单价" step="0.0001">
+                <input type="number" class="form-input" id="fund-cost-price" placeholder="0" step="0.0001">
             </div>
             <div class="form-group">
                 <label class="form-label">当前单价</label>
-                <input type="number" class="form-input" id="fund-current-price" placeholder="请输入当前单价" step="0.0001">
+                <input type="number" class="form-input" id="fund-current-price" placeholder="0" step="0.0001">
             </div>
-            <button class="btn-primary" id="save-fund-btn" style="width:100%;">保存</button>
+            <button class="btn-primary" id="save-local-fund-btn" style="width:100%;">保存</button>
         `;
-        
-        document.getElementById('save-fund-btn').addEventListener('click', () => this.saveFund());
-        
+
+        document.getElementById('save-local-fund-btn').addEventListener('click', () => this.saveLocalFund());
         modal.classList.add('active');
     }
 
-    showEditFundModal(id) {
-        const fund = this.fundData.portfolio.find(f => f.id === id);
+    showEditLocalFundModal(idx) {
+        const fund = this.localFunds[idx];
         if (!fund) return;
-        
+
         const modal = document.getElementById('modal');
         const modalBody = document.getElementById('modal-body');
-        document.getElementById('modal-title').textContent = '编辑基金';
-        
+        document.getElementById('modal-title').textContent = '编辑基金（本地）';
+
         modalBody.innerHTML = `
             <div class="form-group">
                 <label class="form-label">基金名称</label>
-                <input type="text" class="form-input" id="fund-name" value="${fund.name || ''}">
+                <input type="text" class="form-input" id="fund-name" value="${this._escapeAttr(fund.name || '')}">
             </div>
             <div class="form-group">
                 <label class="form-label">基金代码</label>
-                <input type="text" class="form-input" id="fund-code" value="${fund.code || ''}">
+                <input type="text" class="form-input" id="fund-code" value="${this._escapeAttr(fund.code || '')}">
             </div>
             <div class="form-group">
                 <label class="form-label">持有份额</label>
@@ -436,273 +586,86 @@ class UIManager {
                 <label class="form-label">当前单价</label>
                 <input type="number" class="form-input" id="fund-current-price" value="${fund.currentPrice || ''}" step="0.0001">
             </div>
-            <button class="btn-primary" id="save-fund-btn" style="width:100%; margin-bottom:0.5rem;">保存</button>
-            <button class="btn-danger" id="delete-fund-btn" style="width:100%;">删除</button>
+            <button class="btn-primary" id="save-local-fund-btn" style="width:100%;margin-bottom:0.5rem;">保存</button>
+            <button class="btn-danger" id="delete-local-fund-btn" style="width:100%;">删除</button>
         `;
-        
-        document.getElementById('save-fund-btn').addEventListener('click', () => this.saveFund(id));
-        document.getElementById('delete-fund-btn').addEventListener('click', () => {
+
+        document.getElementById('save-local-fund-btn').addEventListener('click', () => this.saveLocalFund(idx));
+        document.getElementById('delete-local-fund-btn').addEventListener('click', () => {
             if (confirm('确定要删除这只基金吗？')) {
-                this.fundData.removeFund(id);
+                this.localFunds.splice(idx, 1);
+                Settings.setLocalFunds(this.localFunds);
                 this.hideModal();
-                this.renderAll();
+                this.renderLocalPortfolio();
                 this.showToast('基金已删除');
             }
         });
-        
         modal.classList.add('active');
     }
 
-    saveFund(id = null) {
+    saveLocalFund(idx = null) {
         const name = document.getElementById('fund-name').value.trim();
         const code = document.getElementById('fund-code').value.trim();
         const shares = parseFloat(document.getElementById('fund-shares').value) || 0;
         const costPrice = parseFloat(document.getElementById('fund-cost-price').value) || 0;
-        const currentPrice = parseFloat(document.getElementById('fund-current-price').value) || costPrice;
-        
+        const currentPrice = parseFloat(document.getElementById('fund-current-price').value) || 0;
+
         if (!name) {
             this.showToast('请输入基金名称');
             return;
         }
-        
-        const fund = {
-            name,
-            code,
-            shares,
-            costPrice,
-            currentPrice,
-            cost: shares * costPrice,
-            currentValue: shares * currentPrice,
-            todayProfit: (currentPrice - costPrice) * shares * 0.1
-        };
-        
-        if (id) {
-            this.fundData.updateFund(id, fund);
-            this.showToast('基金已更新');
+
+        const fund = { name, code, shares, costPrice, currentPrice };
+
+        if (idx !== null) {
+            this.localFunds[idx] = fund;
         } else {
-            this.fundData.addFund(fund);
-            this.showToast('基金已添加');
+            this.localFunds.push(fund);
         }
-        
+
+        Settings.setLocalFunds(this.localFunds);
         this.hideModal();
-        this.renderAll();
+        this.renderLocalPortfolio();
+        this.showToast(idx !== null ? '基金已更新' : '基金已添加');
     }
 
     hideModal() {
         document.getElementById('modal').classList.remove('active');
     }
 
-    showPage(page) {
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        document.getElementById(`${page}-page`).classList.add('active');
+    _escapeAttr(str) {
+        return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    switchTab(tab) {
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.classList.toggle('active', item.dataset.tab === tab);
-        });
-        
-        if (tab === 'settings') {
-            this.showPage('settings');
-        } else {
-            this.showPage('main');
-        }
-    }
-
-    checkTradeStatus() {
-        const now = new Date();
-        const hour = now.getHours();
-        const minute = now.getMinutes();
-        const day = now.getDay();
-        
-        const isWeekday = day >= 1 && day <= 5;
-        const isTradeTime = (hour >= 9 && hour < 15) || (hour === 15 && minute < 30);
-        
-        const statusEl = document.getElementById('trade-status');
-        if (isWeekday && isTradeTime) {
-            statusEl.textContent = '交易中';
-            statusEl.style.color = 'var(--success)';
-        } else if (isWeekday) {
-            statusEl.textContent = '休市中';
-            statusEl.style.color = 'var(--text-secondary)';
-        } else {
-            statusEl.textContent = '休市中';
-            statusEl.style.color = 'var(--text-secondary)';
-        }
-    }
-
-    renderAll() {
-        this.renderUpdateTime();
-        this.renderAssetOverview();
-        this.renderReport();
-        this.renderPortfolio();
-        this.renderRecommendations();
-    }
-
-    renderUpdateTime() {
-        const updateTimeEl = document.getElementById('update-time');
-        if (this.fundData.lastUpdate) {
-            const date = new Date(this.fundData.lastUpdate);
-            updateTimeEl.textContent = date.toLocaleString('zh-CN');
-        } else {
-            updateTimeEl.textContent = '--';
-        }
-    }
-
-    renderAssetOverview() {
-        const totalAsset = this.fundData.getTotalAsset();
-        const totalCost = this.fundData.getTotalCost();
-        const todayProfit = this.fundData.getTodayProfit();
-        const totalReturn = this.fundData.getTotalReturn();
-        
-        document.getElementById('total-asset').textContent = `¥${totalAsset.toFixed(2)}`;
-        document.getElementById('total-cost').textContent = `¥${totalCost.toFixed(2)}`;
-        
-        const todayProfitEl = document.getElementById('today-profit');
-        todayProfitEl.textContent = `${todayProfit >= 0 ? '+' : ''}¥${todayProfit.toFixed(2)}`;
-        todayProfitEl.className = `stat-value ${todayProfit >= 0 ? 'positive' : 'negative'}`;
-        
-        const totalReturnEl = document.getElementById('total-return');
-        totalReturnEl.textContent = `${totalReturn >= 0 ? '+' : ''}${totalReturn.toFixed(2)}%`;
-        totalReturnEl.className = `stat-value ${totalReturn >= 0 ? 'positive' : 'negative'}`;
-    }
-
-    renderReport() {
-        const reportContent = document.getElementById('report-content');
-        
-        if (this.fundData.reports.length === 0) {
-            this.fundData.generateReport();
-        }
-        
-        const latestReport = this.fundData.reports[0];
-        
-        if (latestReport) {
-            reportContent.innerHTML = `<p>${latestReport.analysis}</p>`;
-        } else {
-            reportContent.innerHTML = '<div class="empty-state">暂无汇报数据</div>';
-        }
-    }
-
-    renderPortfolio() {
-        const list = document.getElementById('portfolio-list');
-        
-        if (this.fundData.portfolio.length === 0) {
-            list.innerHTML = '<div class="empty-state">暂无持仓数据，点击上方添加按钮开始</div>';
-            return;
-        }
-        
-        list.innerHTML = this.fundData.portfolio.map(fund => {
-            const change = fund.currentPrice && fund.costPrice 
-                ? ((fund.currentPrice - fund.costPrice) / fund.costPrice * 100) 
-                : 0;
-            const todayProfit = fund.todayProfit || 0;
-            
-            return `
-                <div class="portfolio-item" data-id="${fund.id}">
-                    <div class="portfolio-header">
-                        <div>
-                            <div class="fund-name">${fund.name}</div>
-                            <div class="fund-code">${fund.code || '--'}</div>
-                        </div>
-                        <div class="fund-change ${change >= 0 ? 'positive' : 'negative'}">
-                            ${change >= 0 ? '+' : ''}${change.toFixed(2)}%
-                        </div>
-                    </div>
-                    <div class="portfolio-details">
-                        <div class="detail-item">
-                            <span class="detail-label">市值</span>
-                            <span class="detail-value">¥${(fund.currentValue || 0).toFixed(2)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">成本</span>
-                            <span class="detail-value">¥${(fund.cost || 0).toFixed(2)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">今日盈亏</span>
-                            <span class="detail-value ${todayProfit >= 0 ? 'positive' : 'negative'}" style="color: ${todayProfit >= 0 ? 'var(--success)' : 'var(--danger)'}">
-                                ${todayProfit >= 0 ? '+' : ''}¥${todayProfit.toFixed(2)}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-        list.querySelectorAll('.portfolio-item').forEach(item => {
-            item.addEventListener('click', () => {
-                this.showEditFundModal(parseInt(item.dataset.id));
-            });
-        });
-    }
-
-    renderRecommendations() {
-        const list = document.getElementById('recommend-list');
-        
-        if (this.fundData.recommendations.length === 0) {
-            this.fundData.generateRecommendations();
-        }
-        
-        list.innerHTML = this.fundData.recommendations.map(rec => `
-            <div class="recommend-item">
-                <div class="recommend-header">
-                    <div>
-                        <div class="recommend-name">${rec.name}</div>
-                        <div class="fund-code">${rec.code}</div>
-                    </div>
-                    <span class="recommend-tag ${rec.type}">
-                        ${rec.type === 'buy' ? '买入' : rec.type === 'sell' ? '卖出' : '持有'}
-                    </span>
-                </div>
-                <p class="recommend-reason">${rec.reason}</p>
-            </div>
-        `).join('');
-    }
+    // ── Data Export/Import ──
 
     exportData() {
         const data = {
-            portfolio: this.fundData.portfolio,
-            settings: this.fundData.settings,
-            lastUpdate: this.fundData.lastUpdate,
-            reports: this.fundData.reports,
-            recommendations: this.fundData.recommendations,
+            localFunds: this.localFunds,
+            settings: Settings.get(),
             exportDate: new Date().toISOString()
         };
-        
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `apex-capital-backup-${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `apex-capital-backup-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        
-        this.showToast('数据已导出');
+        this.showToast('本地数据已导出');
     }
 
     importData(file) {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = e => {
             try {
                 const data = JSON.parse(e.target.result);
-                
-                if (data.portfolio) {
-                    this.fundData.portfolio = data.portfolio;
-                    this.fundData.savePortfolio();
+                if (Array.isArray(data.localFunds)) {
+                    this.localFunds = data.localFunds;
+                    Settings.setLocalFunds(this.localFunds);
                 }
-                if (data.settings) {
-                    this.fundData.settings = data.settings;
-                    this.fundData.saveSettings();
-                }
-                if (data.reports) {
-                    this.fundData.reports = data.reports;
-                    DataManager.set(STORAGE_KEYS.reports, data.reports);
-                }
-                if (data.recommendations) {
-                    this.fundData.recommendations = data.recommendations;
-                    DataManager.set(STORAGE_KEYS.recommendations, data.recommendations);
-                }
-                
-                this.renderAll();
+                if (data.settings) Settings.set(data.settings);
+                this.renderLocalPortfolio();
                 this.showToast('数据导入成功');
             } catch (err) {
                 this.showToast('导入失败：文件格式错误');
@@ -710,97 +673,8 @@ class UIManager {
         };
         reader.readAsText(file);
     }
-
-    showToast(message) {
-        const existing = document.querySelector('.toast');
-        if (existing) existing.remove();
-        
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        
-        setTimeout(() => toast.remove(), 3000);
-    }
 }
 
-const fundData = new FundData();
-const ui = new UIManager(fundData);
+// ── Boot ──
 
-if (fundData.portfolio.length === 0) {
-    setTimeout(() => {
-        ui.showToast('欢迎使用巅峰资本！添加您的第一只基金吧');
-    }, 1000);
-}
-
-FundData.prototype.initSampleData = function() {
-    const sampleFunds = [
-        {
-            name: '易方达蓝筹精选混合',
-            code: '005827',
-            shares: 1000,
-            costPrice: 2.85,
-            currentPrice: 3.12,
-            cost: 2850,
-            currentValue: 3120,
-            todayProfit: 45.50
-        },
-        {
-            name: '景顺长城新兴成长混合',
-            code: '260108',
-            shares: 500,
-            costPrice: 1.95,
-            currentPrice: 2.08,
-            cost: 975,
-            currentValue: 1040,
-            todayProfit: -12.30
-        },
-        {
-            name: '华夏回报混合A',
-            code: '002001',
-            shares: 2000,
-            costPrice: 1.45,
-            currentPrice: 1.52,
-            cost: 2900,
-            currentValue: 3040,
-            todayProfit: 23.80
-        },
-        {
-            name: '广发双擎升级混合',
-            code: '005911',
-            shares: 800,
-            costPrice: 3.20,
-            currentPrice: 3.05,
-            cost: 2560,
-            currentValue: 2440,
-            todayProfit: -28.50
-        },
-        {
-            name: '中欧时代先锋股票A',
-            code: '001938',
-            shares: 1500,
-            costPrice: 1.78,
-            currentPrice: 1.85,
-            cost: 2670,
-            currentValue: 2775,
-            todayProfit: 18.20
-        }
-    ];
-    
-    sampleFunds.forEach(fund => {
-        this.addFund(fund);
-    });
-    
-    this.savePortfolio();
-};
-
-if (localStorage.getItem('apex_welcomed') !== 'true') {
-    setTimeout(() => {
-        if (confirm('欢迎使用巅峰资本！是否加载示例数据进行体验？')) {
-            fundData.initSampleData();
-            ui.renderAll();
-            ui.showToast('✅ 示例数据已加载，请查看您的持仓');
-        }
-        localStorage.setItem('apex_welcomed', 'true');
-    }, 2000);
-}
+const ui = new UIManager();

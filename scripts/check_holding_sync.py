@@ -34,9 +34,9 @@ def gh_api(endpoint, method="GET", data=None):
     }
     # 使用 gh cli 获取 token
     try:
-        token = subprocess.check_output(
-            ["gh", "auth", "token"], capture_output=True, text=True, shell=True
-        ).strip()
+        token = subprocess.run(
+            ["gh", "auth", "token"], capture_output=True, text=True
+        ).stdout.strip()
         if token:
             headers["Authorization"] = f"token {token}"
     except:
