@@ -1,20 +1,20 @@
 {
-  "update_time": "2026-05-26 18:31:03",
-  "update_time_short": "05-26 18:31",
+  "update_time": "2026-05-26 22:47:48",
+  "update_time_short": "05-26 22:47",
   "is_trading_day": true,
   "trading_status": "已收盘",
   "source": "github-actions",
-  "run_id": "26446999129",
-  "cache_buster": "20260526183103_26446999129",
+  "run_id": "26455604437",
+  "cache_buster": "20260526224748_26455604437",
   "summary": {
-    "total_value": 277318.68,
-    "normal_value": 264547.17,
+    "total_value": 277097.88,
+    "normal_value": 264326.38,
     "pension_value": 12771.5,
     "total_cost": 266470.24,
-    "total_hold_pnl": 10848.44,
-    "total_hold_pnl_pct": 4.07,
-    "today_pnl": 344.86,
-    "normal_today_pnl": 345.99,
+    "total_hold_pnl": 10627.64,
+    "total_hold_pnl_pct": 3.99,
+    "today_pnl": 124.06,
+    "normal_today_pnl": 125.19,
     "pension_today_pnl": -1.13,
     "fund_count": 25,
     "normal_count": 20,
@@ -22,14 +22,14 @@
   },
   "type_distribution": {
     "qdii": {
-      "value": 117114.88,
+      "value": 116894.09,
       "count": 8,
       "pct": 42.2
     },
     "mix": {
       "value": 87760.59,
       "count": 7,
-      "pct": 31.6
+      "pct": 31.7
     },
     "index": {
       "value": 28365.68,
@@ -58,13 +58,13 @@
       "name": "易方达全球成长精选混合(QDII)人民币A",
       "type": "QDII混合",
       "tag": "qdii",
-      "nav": 4.1836,
-      "nav_date": "2026-05-23",
-      "today_pct": 0.27,
-      "market_value": 50559.95,
-      "today_pnl": 136.14,
-      "hold_pnl": 19673.69,
-      "hold_pnl_pct": 63.7,
+      "nav": 4.2686,
+      "nav_date": "2026-05-26",
+      "today_pct": -0.02,
+      "market_value": 50413.73,
+      "today_pnl": -10.08,
+      "hold_pnl": 19527.47,
+      "hold_pnl_pct": 63.22,
       "profit": "up",
       "warnings": []
     },
@@ -165,13 +165,13 @@
       "name": "嘉实全球产业升级股票发起式(QDII)C",
       "type": "QDII股票",
       "tag": "qdii",
-      "nav": 4.0552,
-      "nav_date": "2026-05-23",
-      "today_pct": 0.31,
-      "market_value": 13560.23,
-      "today_pnl": 41.91,
-      "hold_pnl": 2606.86,
-      "hold_pnl_pct": 23.8,
+      "nav": 4.1078,
+      "nav_date": "2026-05-26",
+      "today_pct": -0.02,
+      "market_value": 13515.62,
+      "today_pnl": -2.7,
+      "hold_pnl": 2562.25,
+      "hold_pnl_pct": 23.39,
       "profit": "up",
       "warnings": []
     },
@@ -257,13 +257,13 @@
       "name": "易方达全球成长精选混合(QDII)人民币C",
       "type": "QDII混合",
       "tag": "qdii",
-      "nav": 4.1054,
-      "nav_date": "2026-05-23",
-      "today_pct": 0.27,
-      "market_value": 8893.3,
-      "today_pnl": 23.95,
-      "hold_pnl": 1493.3,
-      "hold_pnl_pct": 20.18,
+      "nav": 4.1886,
+      "nav_date": "2026-05-26",
+      "today_pct": -0.02,
+      "market_value": 8867.58,
+      "today_pnl": -1.77,
+      "hold_pnl": 1467.58,
+      "hold_pnl_pct": 19.83,
       "profit": "up",
       "warnings": []
     },
@@ -302,13 +302,13 @@
       "name": "嘉实全球产业升级股票发起式(QDII)A",
       "type": "QDII股票",
       "tag": "qdii",
-      "nav": 4.135,
-      "nav_date": "2026-05-23",
-      "today_pct": 0.31,
-      "market_value": 5596.85,
-      "today_pnl": 17.3,
-      "hold_pnl": 396.85,
-      "hold_pnl_pct": 7.63,
+      "nav": 4.1888,
+      "nav_date": "2026-05-26",
+      "today_pct": -0.02,
+      "market_value": 5578.43,
+      "today_pnl": -1.12,
+      "hold_pnl": 378.43,
+      "hold_pnl_pct": 7.28,
       "profit": "up",
       "warnings": []
     },
@@ -349,13 +349,13 @@
       "name": "南方纳斯达克100指数发起(QDII)C",
       "type": "QDII指数",
       "tag": "qdii",
-      "nav": 2.3103,
-      "nav_date": "2026-05-23",
-      "today_pct": 0.4,
-      "market_value": 1129.74,
-      "today_pnl": 4.5,
-      "hold_pnl": -70.26,
-      "hold_pnl_pct": -5.85,
+      "nav": 2.3373,
+      "nav_date": "2026-05-26",
+      "today_pct": 1.66,
+      "market_value": 1143.92,
+      "today_pnl": 18.68,
+      "hold_pnl": -56.08,
+      "hold_pnl_pct": -4.67,
       "profit": "down",
       "warnings": [
         "仓位<1%,建议清仓整合"
@@ -447,26 +447,26 @@
       {
         "code": "012920",
         "name": "易方达全球成长精选混合(QDII)人民币A",
-        "pct": 63.7,
-        "pnl": 19673.69
+        "pct": 63.22,
+        "pnl": 19527.47
       },
       {
         "code": "017731",
         "name": "嘉实全球产业升级股票发起式(QDII)C",
-        "pct": 23.8,
-        "pnl": 2606.86
+        "pct": 23.39,
+        "pnl": 2562.25
       },
       {
         "code": "012922",
         "name": "易方达全球成长精选混合(QDII)人民币C",
-        "pct": 20.18,
-        "pnl": 1493.3
+        "pct": 19.83,
+        "pnl": 1467.58
       },
       {
         "code": "017730",
         "name": "嘉实全球产业升级股票发起式(QDII)A",
-        "pct": 7.63,
-        "pnl": 396.85
+        "pct": 7.28,
+        "pnl": 378.43
       },
       {
         "code": "014642",
@@ -501,14 +501,14 @@
         "pnl": -1573.21
       },
       {
-        "code": "016453",
-        "name": "南方纳斯达克100指数发起(QDII)C",
-        "pct": -5.85,
-        "pnl": -70.26
+        "code": "025416",
+        "name": "新华优选分红混合C",
+        "pct": -4.97,
+        "pnl": -851.88
       }
     ]
   },
-  "report_text": "📊 巅峰资本 · 基金持仓日报（云端自动生成）\n⏰ 2026-05-26 18:31:03 | 已收盘\n\n💰 总资产：¥277,318.68\n   普通账户：¥264,547.17  |  养老金：¥12,771.50\n📈 今日盈亏：+¥344.86\n📊 持有收益：+¥10,848.44 (+4.07%)\n🏆 今日最强：易方达全球成长精选混合(QDII)人民币A (+63.70%)\n⚠ 今日最弱：汇添富恒生科技ETF联接发起式(QDII)C (-17.81%)\n\n🚨 需关注亏损仓位：\n   • 汇添富恒生科技ETF联接发起式(QDII)C(013128) -17.81% ¥25,698\n   • 易方达中证人工智能主题ETF联接C(012734) -11.74% ¥8,826\n   • 中欧周期优选混合发起A(019888) -9.78% ¥8,968\n   • 易方达竞争优势企业混合C(010849) -8.10% ¥17,853\n   • 南方纳斯达克100指数发起(QDII)C(016453) -5.85% ¥1,130",
+  "report_text": "📊 巅峰资本 · 基金持仓日报（云端自动生成）\n⏰ 2026-05-26 22:47:48 | 已收盘\n\n💰 总资产：¥277,097.88\n   普通账户：¥264,326.38  |  养老金：¥12,771.50\n📈 今日盈亏：+¥124.06\n📊 持有收益：+¥10,627.64 (+3.99%)\n🏆 今日最强：易方达全球成长精选混合(QDII)人民币A (+63.22%)\n⚠ 今日最弱：汇添富恒生科技ETF联接发起式(QDII)C (-17.81%)\n\n🚨 需关注亏损仓位：\n   • 汇添富恒生科技ETF联接发起式(QDII)C(013128) -17.81% ¥25,698\n   • 易方达中证人工智能主题ETF联接C(012734) -11.74% ¥8,826\n   • 中欧周期优选混合发起A(019888) -9.78% ¥8,968\n   • 易方达竞争优势企业混合C(010849) -8.10% ¥17,853",
   "data_stale": {
     "level": "red",
     "days": 32,
