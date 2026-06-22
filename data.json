@@ -1,20 +1,20 @@
 {
-  "update_time": "2026-06-22 20:55:11",
-  "update_time_short": "06-22 20:55",
+  "update_time": "2026-06-23 00:38:54",
+  "update_time_short": "06-23 00:38",
   "is_trading_day": true,
   "trading_status": "已收盘",
   "source": "github-actions",
-  "run_id": "27954200345",
-  "cache_buster": "20260622205511_27954200345",
+  "run_id": "27968519812",
+  "cache_buster": "20260623003854_27968519812",
   "summary": {
-    "total_value": 279232.19,
-    "normal_value": 266375.44,
+    "total_value": 279320.89,
+    "normal_value": 266464.14,
     "pension_value": 12856.75,
     "total_cost": 266470.24,
-    "total_hold_pnl": 12761.95,
-    "total_hold_pnl_pct": 4.79,
-    "today_pnl": 2258.37,
-    "normal_today_pnl": 2174.25,
+    "total_hold_pnl": 12850.65,
+    "total_hold_pnl_pct": 4.82,
+    "today_pnl": 2347.07,
+    "normal_today_pnl": 2262.95,
     "pension_today_pnl": 84.12,
     "fund_count": 25,
     "normal_count": 20,
@@ -22,9 +22,9 @@
   },
   "type_distribution": {
     "qdii": {
-      "value": 116298.12,
+      "value": 116386.83,
       "count": 8,
-      "pct": 41.6
+      "pct": 41.7
     },
     "mix": {
       "value": 89419.22,
@@ -58,13 +58,13 @@
       "name": "易方达全球成长精选混合(QDII)人民币A",
       "type": "QDII混合",
       "tag": "qdii",
-      "nav": 4.9387,
-      "nav_date": "2026-06-19",
-      "today_pct": 0.06,
-      "market_value": 50454.06,
-      "today_pnl": 30.25,
-      "hold_pnl": 19567.8,
-      "hold_pnl_pct": 63.35,
+      "nav": 5.21,
+      "nav_date": "2026-06-22",
+      "today_pct": 0.2,
+      "market_value": 50524.66,
+      "today_pnl": 100.85,
+      "hold_pnl": 19638.4,
+      "hold_pnl_pct": 63.58,
       "profit": "up",
       "warnings": []
     },
@@ -165,13 +165,13 @@
       "name": "嘉实全球产业升级股票发起式(QDII)C",
       "type": "QDII股票",
       "tag": "qdii",
-      "nav": 4.4661,
-      "nav_date": "2026-06-19",
-      "today_pct": 0.07,
-      "market_value": 13527.78,
-      "today_pnl": 9.46,
-      "hold_pnl": 2574.41,
-      "hold_pnl_pct": 23.5,
+      "nav": 4.6525,
+      "nav_date": "2026-06-22",
+      "today_pct": 0.23,
+      "market_value": 13549.41,
+      "today_pnl": 31.09,
+      "hold_pnl": 2596.04,
+      "hold_pnl_pct": 23.7,
       "profit": "up",
       "warnings": []
     },
@@ -257,13 +257,13 @@
       "name": "易方达全球成长精选混合(QDII)人民币C",
       "type": "QDII混合",
       "tag": "qdii",
-      "nav": 4.8447,
-      "nav_date": "2026-06-19",
-      "today_pct": 0.06,
-      "market_value": 8874.67,
-      "today_pnl": 5.32,
-      "hold_pnl": 1474.67,
-      "hold_pnl_pct": 19.93,
+      "nav": 5.1107,
+      "nav_date": "2026-06-22",
+      "today_pct": 0.2,
+      "market_value": 8887.09,
+      "today_pnl": 17.74,
+      "hold_pnl": 1487.09,
+      "hold_pnl_pct": 20.1,
       "profit": "up",
       "warnings": []
     },
@@ -302,13 +302,13 @@
       "name": "嘉实全球产业升级股票发起式(QDII)A",
       "type": "QDII股票",
       "tag": "qdii",
-      "nav": 4.556,
-      "nav_date": "2026-06-19",
-      "today_pct": 0.07,
-      "market_value": 5583.46,
-      "today_pnl": 3.91,
-      "hold_pnl": 383.46,
-      "hold_pnl_pct": 7.37,
+      "nav": 4.7462,
+      "nav_date": "2026-06-22",
+      "today_pct": 0.23,
+      "market_value": 5592.38,
+      "today_pnl": 12.83,
+      "hold_pnl": 392.38,
+      "hold_pnl_pct": 7.55,
       "profit": "up",
       "warnings": []
     },
@@ -349,13 +349,13 @@
       "name": "南方纳斯达克100指数发起(QDII)C",
       "type": "QDII指数",
       "tag": "qdii",
-      "nav": 2.3587,
-      "nav_date": "2026-06-19",
-      "today_pct": 2.35,
-      "market_value": 1151.68,
-      "today_pnl": 26.44,
-      "hold_pnl": -48.32,
-      "hold_pnl_pct": -4.03,
+      "nav": 2.3645,
+      "nav_date": "2026-06-22",
+      "today_pct": 0.14,
+      "market_value": 1126.82,
+      "today_pnl": 1.58,
+      "hold_pnl": -73.18,
+      "hold_pnl_pct": -6.1,
       "profit": "down",
       "warnings": [
         "仓位<1%,建议清仓整合"
@@ -447,26 +447,26 @@
       {
         "code": "012920",
         "name": "易方达全球成长精选混合(QDII)人民币A",
-        "pct": 63.35,
-        "pnl": 19567.8
+        "pct": 63.58,
+        "pnl": 19638.4
       },
       {
         "code": "017731",
         "name": "嘉实全球产业升级股票发起式(QDII)C",
-        "pct": 23.5,
-        "pnl": 2574.41
+        "pct": 23.7,
+        "pnl": 2596.04
       },
       {
         "code": "012922",
         "name": "易方达全球成长精选混合(QDII)人民币C",
-        "pct": 19.93,
-        "pnl": 1474.67
+        "pct": 20.1,
+        "pnl": 1487.09
       },
       {
         "code": "017730",
         "name": "嘉实全球产业升级股票发起式(QDII)A",
-        "pct": 7.37,
-        "pnl": 383.46
+        "pct": 7.55,
+        "pnl": 392.38
       },
       {
         "code": "016874",
@@ -495,20 +495,20 @@
         "pnl": -887.04
       },
       {
+        "code": "016453",
+        "name": "南方纳斯达克100指数发起(QDII)C",
+        "pct": -6.1,
+        "pnl": -73.18
+      },
+      {
         "code": "010849",
         "name": "易方达竞争优势企业混合C",
         "pct": -5.08,
         "pnl": -986.91
-      },
-      {
-        "code": "016453",
-        "name": "南方纳斯达克100指数发起(QDII)C",
-        "pct": -4.03,
-        "pnl": -48.32
       }
     ]
   },
-  "report_text": "📊 巅峰资本 · 基金持仓日报（云端自动生成）\n⏰ 2026-06-22 20:55:11 | 已收盘\n\n💰 总资产：¥279,232.19\n   普通账户：¥266,375.44  |  养老金：¥12,856.75\n📈 今日盈亏：+¥2,258.37\n📊 持有收益：+¥12,761.95 (+4.79%)\n🏆 今日最强：易方达全球成长精选混合(QDII)人民币A (+63.35%)\n⚠ 今日最弱：汇添富恒生科技ETF联接发起式(QDII)C (-19.95%)\n\n🚨 需关注亏损仓位：\n   • 汇添富恒生科技ETF联接发起式(QDII)C(013128) -19.95% ¥25,030\n   • 易方达中证人工智能主题ETF联接C(012734) -10.15% ¥8,985\n   • 中欧周期优选混合发起A(019888) -8.92% ¥9,053\n   • 易方达竞争优势企业混合C(010849) -5.08% ¥18,440",
+  "report_text": "📊 巅峰资本 · 基金持仓日报（云端自动生成）\n⏰ 2026-06-23 00:38:54 | 已收盘\n\n💰 总资产：¥279,320.89\n   普通账户：¥266,464.14  |  养老金：¥12,856.75\n📈 今日盈亏：+¥2,347.07\n📊 持有收益：+¥12,850.65 (+4.82%)\n🏆 今日最强：易方达全球成长精选混合(QDII)人民币A (+63.58%)\n⚠ 今日最弱：汇添富恒生科技ETF联接发起式(QDII)C (-19.95%)\n\n🚨 需关注亏损仓位：\n   • 汇添富恒生科技ETF联接发起式(QDII)C(013128) -19.95% ¥25,030\n   • 易方达中证人工智能主题ETF联接C(012734) -10.15% ¥8,985\n   • 中欧周期优选混合发起A(019888) -8.92% ¥9,053\n   • 南方纳斯达克100指数发起(QDII)C(016453) -6.10% ¥1,127\n   • 易方达竞争优势企业混合C(010849) -5.08% ¥18,440",
   "data_stale": {
     "level": "red",
     "days": 50,
